@@ -8,6 +8,7 @@ using namespace std;
 class FileManager
 {
 public:
+	FileManager() = default;
 	FileManager(const string inFilename, const string outFilename);
 	~FileManager();
 
