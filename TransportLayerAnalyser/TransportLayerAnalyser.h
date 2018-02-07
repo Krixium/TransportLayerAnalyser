@@ -19,6 +19,9 @@ const QString TITLE = "TransportLayerAnalyser";
 const QString RCV_DUMP_FILE = "recv.txt";
 const QString STAT_LOG = "stat-log.txt";
 
+const QString LABEL_TIME = "Time: ";
+const QString LABEL_XFER = "Data Transfered: ";
+
 class TransportLayerAnalyser : public QMainWindow
 {
 	Q_OBJECT
@@ -34,12 +37,13 @@ private:
 	QString mOutputFileName;
 
 	FileManager * mFileManager;
+	FileManager * mStatsManager;
 	NetworkManager * mNetworkManager;
 
 	void setClientMode();
 	void setServerMode();
 
-	void startClient();
+	void startClient(const int packetSize, const int packetCount);
 	void startServer();
 
 private slots:
@@ -50,4 +54,7 @@ private slots:
 
 	void start();
 	void stop();
+
+signals:
+	void progress(int progress);
 };

@@ -22,6 +22,8 @@ public:
 	const int Send(const string data, const int size);
 	const string Read();
 
+	const string ErrorMessage();
+
 private:
 	WORD wVersionRequested;
 	WSADATA wsaData;
@@ -33,6 +35,8 @@ private:
 	SOCKET mSocket;
 	int mConnectionStatus;
 	struct sockaddr_in mServer;
+
+	int mErr;
 
 	const int connectTCP();
 	const int connectUDP();

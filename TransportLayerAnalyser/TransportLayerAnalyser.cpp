@@ -8,6 +8,7 @@ TransportLayerAnalyser::TransportLayerAnalyser(QWidget *parent)
 	, mMode("")
 	, mNetworkManager(nullptr)
 	, mFileManager(new FileManager())
+	, mStatsManager(new FileManager("", "stats.txt"))
 {
 	ui.setupUi(this);
 
@@ -39,8 +40,10 @@ void TransportLayerAnalyser::setClientMode()
 	ui.actionServer->setChecked(false);
 	ui.groupBox_packet->setEnabled(true);
 	ui.groupBox_data->setEnabled(true);
+	ui.lineEdit_dest->setEnabled(true);
 	setWindowTitle(TITLE + " - Client Mode");
 	mMode = "client";
+	ui.menuBar->setStyleSheet("background-color : blue;");
 }
 
 void TransportLayerAnalyser::setServerMode()
@@ -49,8 +52,10 @@ void TransportLayerAnalyser::setServerMode()
 	ui.actionServer->setChecked(true);
 	ui.groupBox_packet->setEnabled(false);
 	ui.groupBox_data->setEnabled(false);
+	ui.lineEdit_dest->setEnabled(false);
 	setWindowTitle(TITLE + " - Server Mode");
 	mMode = "server";
+	ui.menuBar->setStyleSheet("background-color : orange;");
 }
 
 void TransportLayerAnalyser::actionToggle(bool checked)
@@ -78,41 +83,18 @@ void TransportLayerAnalyser::selectOutputFolder()
 {
 	mOutputFileName = QFileDialog::getExistingDirectory(this, "Open Folder", "C:/", QFileDialog::ShowDirsOnly | QFileDialog::DontResolveSymlinks);
 	mOutputFileName += "output.txt";
+	mFileManager->SetOutFile(mOutputFileName.toStdString());
 }
 
 void TransportLayerAnalyser::start()
 {
-	if (mMode == "client")
-	{
-		startClient();
-	} 
-	else if (mMode == "server")
-	{
-		startServer();
-	}
-	else
-	{
-		QMessageBox::critical(this, "Error", "Please select a operation mode.");
-	}
-}
-
-void TransportLayerAnalyser::stop()
-{
-
-}
-
-void TransportLayerAnalyser::startClient()
-{
-	FileManager stats("", "stats.txt");
-
+	// Get settings
 	int packetSize = ui.lineEdit_packet_size->text().toInt();
 	int packetCount = ui.lineEdit_packet_count->text().toInt();
-
 	int port = ui.lineEdit_port->text().toInt();
 	string protocol;
-
 	string dest = ui.lineEdit_dest->text().toStdString();
-	
+
 	if (ui.radioButton_tcp->isChecked())
 	{
 		protocol = "tcp";
@@ -124,49 +106,65 @@ void TransportLayerAnalyser::startClient()
 	else
 	{
 		QMessageBox::critical(this, "Error", "Protocol selection failed please try again.");
+		return;
 	}
 
+	// Create new NetworkManager
 	delete mNetworkManager;
 	mNetworkManager = new NetworkManager(protocol, dest, port);
 
-	if (ui.radioButton_text->isChecked())
+	// Connect NetworkManager and start in server or client mode
+	if (mNetworkManager->Connect() == -1)
 	{
-		string msg = ui.plainTextEdit_message->toPlainText().toStdString();
-		if (msg.length() > packetSize)
-		{
-			QMessageBox::critical(this, "Error", "The message must be small enough to fit in the specificed packet size.");
-			return;
-		}
-
-		mNetworkManager->Connect();
-		for (int i = 0; i < packetCount; i++)
-		{
-			if (mNetworkManager->Send(msg, packetSize) == -1)
-			{
-				QMessageBox::critical(this, "Error", "An error was encoutered during sending");
-				break;
-			}
-		}
-		mNetworkManager->Disconnect();
-	}
-	else if (ui.radioButton_file->isChecked())
-	{
-		mFileManager->SetInFile(ui.label_filename->text().toStdString());
-
-		mNetworkManager->Connect();
-		for (int i = 0; i < packetCount; i++)
-		{
-			mNetworkManager->Send(mFileManager->Read(packetSize), packetSize);
-		}
-		mNetworkManager->Disconnect();
+		QMessageBox::critical(this, "Error", QString::fromStdString(mNetworkManager->ErrorMessage()));
 	}
 	else
 	{
-		QMessageBox::critical(this, "Error", "The input methond was not specified or it encountered an error.");
+		if (mMode == "client")
+		{
+			startClient(packetSize, packetCount);
+		}
+		else if (mMode == "server")
+		{
+			startServer();
+		}
+		else
+		{
+			QMessageBox::critical(this, "Error", "Please select a operation mode.");
+		}
+		mNetworkManager->Disconnect();
+	}
+	
+}
+
+void TransportLayerAnalyser::stop()
+{
+
+}
+
+void TransportLayerAnalyser::startClient(const int packetSize, const int packetCount)
+{
+	int bytesSent;
+	string msg = ui.plainTextEdit_message->toPlainText().toStdString();
+
+	for (int i = 0; i < packetCount; i++)
+	{
+		bytesSent = mNetworkManager->Send(msg, packetSize);
+
+		if (bytesSent == -1)
+		{
+			QMessageBox::critical(this, "Error", QString::fromStdString(mNetworkManager->ErrorMessage()));
+			break;
+		}
 	}
 }
 
 void TransportLayerAnalyser::startServer()
 {
-
+	string msg;
+	while ((msg = mNetworkManager->Read()) != "")
+	{
+		qDebug() << "Msg:" << QString::fromStdString(msg);
+	}
+	qDebug() << "Server mode exitting";
 }

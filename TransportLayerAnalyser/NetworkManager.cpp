@@ -1,10 +1,13 @@
 #include "NetworkManager.h"
 
+#include <QDebug>
+
 NetworkManager::NetworkManager(const string protocol, const string host, const int port)
 	: mProtocol(protocol)
 	, mPort(port)
 	, mSocket(-1)
 	, mConnectionStatus(-1)
+	, mErr()
 {
 	struct in_addr * pAddress;
 
@@ -58,6 +61,7 @@ const int NetworkManager::connectTCP()
 	// Connect to socket
 	if ((mSocket = socket(AF_INET, SOCK_STREAM, 0)) == -1)
 	{
+		mErr = WSAGetLastError();
 		return 0;
 	}
 
@@ -69,6 +73,7 @@ const int NetworkManager::connectTCP()
 	// Check host
 	if (mpHost == NULL)
 	{
+		mErr = WSAGetLastError();
 		return 0;
 	}
 
@@ -78,6 +83,7 @@ const int NetworkManager::connectTCP()
 	// Connect to server
 	if ((mConnectionStatus = connect(mSocket, (struct sockaddr *)&mServer, sizeof(mServer))) == -1)
 	{
+		mErr = WSAGetLastError();
 		return 0;
 	}
 
@@ -89,6 +95,7 @@ const int NetworkManager::connectUDP()
 	// Connect to socket
 	if ((mSocket = socket(PF_INET, SOCK_DGRAM, 0)) == -1)
 	{
+		mErr = WSAGetLastError();
 		return 0;
 	}
 
@@ -99,6 +106,7 @@ const int NetworkManager::connectUDP()
 	// Check host
 	if (mpHost == NULL)
 	{
+		mErr = WSAGetLastError();
 		return 0;
 	}
 
@@ -112,34 +120,47 @@ const int NetworkManager::Send(const string data, const int size)
 	char * buffer = new char[size];
 	memset(buffer, 0, size);
 	strcpy(buffer, data.c_str());
+	int result;
 
 	if (mProtocol == "tcp")
 	{
-		return send(mSocket, buffer, size, NULL);
+		result = send(mSocket, buffer, size, NULL);
+		if (result == -1)
+		{
+			mErr = WSAGetLastError();
+		}
+		delete buffer;
 	}
 	else if (mProtocol == "udp")
 	{
-		return sendto(mSocket, buffer, size, NULL, (struct sockaddr *)&mServer, sizeof(mServer));
+		result = sendto(mSocket, buffer, size, NULL, (struct sockaddr *)&mServer, sizeof(mServer));
+		if (result == -1)
+		{
+			mErr = WSAGetLastError();
+		}
+		delete buffer;
 	}
 	else
 	{
-		return -1;
+		delete buffer;
+		result = -1;
 	}
+
+	return result;
 }
 
 const string NetworkManager::Read()
 {
-	int serverLength = sizeof(mServer);
 	char buffer[MAX_BUFFER_LEN];
 	memset(buffer, 0, MAX_BUFFER_LEN);
+	char * bp = buffer;
 
 	if (mProtocol == "tcp")
 	{
 		int n;
 		int bytesLeft = MAX_BUFFER_LEN;
-		char * bp = buffer;
 
-		while ((n = recv (mSocket, bp, bytesLeft, 0)) < MAX_BUFFER_LEN)
+		while ((n = recv(mSocket, bp, bytesLeft, 0)) < MAX_BUFFER_LEN)
 		{
 			bp += n;
 			bytesLeft -= n;
@@ -153,6 +174,7 @@ const string NetworkManager::Read()
 	}
 	else if (mProtocol == "udp")
 	{
+		int serverLength = sizeof(mServer);
 		if (recvfrom(mSocket, buffer, MAX_BUFFER_LEN, 0, (struct sockaddr *)&mServer, &serverLength) < 0)
 		{
 			return "";
@@ -166,4 +188,41 @@ const string NetworkManager::Read()
 	{
 		return "";
 	}
+}
+
+const string NetworkManager::ErrorMessage()
+{
+	string msg;
+
+	qDebug() << "Error code:" << mErr;
+
+	switch (mErr)
+	{
+	case WSAENOTSOCK:
+		msg = "No socket given.";
+		break;
+	case WSAENOBUFS:
+		msg = "No buffer space";
+		break;
+	case WSAENOTCONN:
+		msg = "No connection";
+		break;
+	case WSAEDESTADDRREQ:
+		msg = "Destination required";
+		break;
+	case WSAEHOSTUNREACH:
+		msg = "Unreachable host";
+		break;
+	case WSAESHUTDOWN:
+		msg = "Socket has already been shutdown";
+		break;
+	case WSAEADDRNOTAVAIL:
+		msg = "The remote address is not a valid address";
+		break;
+	default:
+		msg = "Error getting error";
+		break;
+	}
+
+	return msg;
 }
