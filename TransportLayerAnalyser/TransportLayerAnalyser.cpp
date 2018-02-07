@@ -162,9 +162,14 @@ void TransportLayerAnalyser::startClient(const int packetSize, const int packetC
 void TransportLayerAnalyser::startServer()
 {
 	string msg;
-	while ((msg = mNetworkManager->Read()) != "")
+	while (true)
 	{
-		qDebug() << "Msg:" << QString::fromStdString(msg);
+		msg = mNetworkManager->Read();
+		if (msg != "")
+		{
+			qDebug() << "Msg:" << QString::fromStdString(msg);
+		}
+		msg = "";
 	}
 	qDebug() << "Server mode exitting";
 }

@@ -40,4 +40,12 @@ private:
 
 	const int connectTCP();
 	const int connectUDP();
+
+
+
+
+
+
+
+	bool mCheese;
 };
