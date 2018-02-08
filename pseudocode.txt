@@ -94,3 +94,4 @@ ServerNetworkAdapter
                     dataReceivedTotal += amount of data that was received
                 else
                     grab error and alert about it
+
