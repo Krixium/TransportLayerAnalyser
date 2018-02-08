@@ -5,10 +5,9 @@
 TransportLayerAnalyser::TransportLayerAnalyser(QWidget *parent)
 	: QMainWindow(parent)
 	, mOutputFileName("C:/")
-	, mMode("")
-	, mNetworkManager(nullptr)
-	, mFileManager(new FileManager())
-	, mStatsManager(new FileManager("", "stats.txt"))
+	, mMode(CLIENT_MODE)
+	, mClientAdapter(nullptr)
+	, mServerAdapter(nullptr)
 {
 	ui.setupUi(this);
 
@@ -30,8 +29,17 @@ TransportLayerAnalyser::TransportLayerAnalyser(QWidget *parent)
 
 TransportLayerAnalyser::~TransportLayerAnalyser()
 {
-	delete mNetworkManager;
-	delete mFileManager;
+	stop();
+	if (mClientAdapter != nullptr)
+	{
+		mClientAdapter->terminate();
+	}
+	if (mServerAdapter != nullptr)
+	{
+		mServerAdapter->terminate();
+	}
+	delete mClientAdapter;
+	delete mServerAdapter;
 }
 
 void TransportLayerAnalyser::setClientMode()
@@ -41,7 +49,7 @@ void TransportLayerAnalyser::setClientMode()
 	ui.groupBox_packet->setEnabled(true);
 	ui.groupBox_data->setEnabled(true);
 	setWindowTitle(TITLE + " - Client Mode");
-	mMode = "client";
+	mMode = CLIENT_MODE;
 	ui.menuBar->setStyleSheet("background-color : blue;");
 }
 
@@ -52,7 +60,7 @@ void TransportLayerAnalyser::setServerMode()
 	ui.groupBox_packet->setEnabled(false);
 	ui.groupBox_data->setEnabled(false);
 	setWindowTitle(TITLE + " - Server Mode");
-	mMode = "server";
+	mMode = SERVER_MODE;
 	ui.menuBar->setStyleSheet("background-color : orange;");
 }
 
@@ -81,7 +89,6 @@ void TransportLayerAnalyser::selectOutputFolder()
 {
 	mOutputFileName = QFileDialog::getExistingDirectory(this, "Open Folder", "C:/", QFileDialog::ShowDirsOnly | QFileDialog::DontResolveSymlinks);
 	mOutputFileName += "output.txt";
-	mFileManager->SetOutFile(mOutputFileName.toStdString());
 }
 
 void TransportLayerAnalyser::start()
@@ -90,16 +97,16 @@ void TransportLayerAnalyser::start()
 	int packetSize = ui.lineEdit_packet_size->text().toInt();
 	int packetCount = ui.lineEdit_packet_count->text().toInt();
 	int port = ui.lineEdit_port->text().toInt();
-	string protocol;
-	string dest = ui.lineEdit_dest->text().toStdString();
+	int protocol;
+	string src = ui.lineEdit_dest->text().toStdString();
 
 	if (ui.radioButton_tcp->isChecked())
 	{
-		protocol = "tcp";
+		protocol = TCP;
 	}
 	else if (ui.radioButton_udp->isChecked())
 	{
-		protocol = "udp";
+		protocol = UDP;
 	}
 	else
 	{
@@ -107,67 +114,42 @@ void TransportLayerAnalyser::start()
 		return;
 	}
 
-	// Create new NetworkManager
-	delete mNetworkManager;
-	mNetworkManager = new NetworkManager(protocol, dest, port);
-
-	// Connect NetworkManager and start in server or client mode
-	if (mNetworkManager->Connect() == -1)
+	// Start thread based on mode
+	if (mMode == CLIENT_MODE)
 	{
-		QMessageBox::critical(this, "Error", QString::fromStdString(mNetworkManager->ErrorMessage()));
+		string msg = ui.plainTextEdit_message->toPlainText().toStdString();
+		if (mClientAdapter != nullptr)
+		{
+			mClientAdapter->terminate();
+		}
+		mClientAdapter  = new ClientAdapter(src, port, protocol, msg, packetSize, packetCount, this);
+		mClientAdapter->start();
+	}
+	else if (mMode == SERVER_MODE)
+	{
+		if (mServerAdapter != nullptr)
+		{
+			mClientAdapter->terminate();
+		}
+		// change so that it reset winsock stuff instead of making a new one
+		mServerAdapter = new ServerAdapter(mOutputFileName.toStdString(), port, protocol, mOutputFileName.toStdString(), this);
+		mServerAdapter->start();
 	}
 	else
 	{
-		if (mMode == "client")
-		{
-			startClient(packetSize, packetCount);
-		}
-		else if (mMode == "server")
-		{
-			startServer();
-		}
-		else
-		{
-			QMessageBox::critical(this, "Error", "Please select a operation mode.");
-		}
-		mNetworkManager->Disconnect();
+		QMessageBox::critical(this, "Error", "Please select a operation mode.");
+		return;
 	}
-	
 }
 
 void TransportLayerAnalyser::stop()
 {
-
-}
-
-void TransportLayerAnalyser::startClient(const int packetSize, const int packetCount)
-{
-	int bytesSent;
-	string msg = ui.plainTextEdit_message->toPlainText().toStdString();
-
-	for (int i = 0; i < packetCount; i++)
+	if (mClientAdapter != nullptr)
 	{
-		bytesSent = mNetworkManager->Send(msg, packetSize);
-
-		if (bytesSent == -1)
-		{
-			QMessageBox::critical(this, "Error", QString::fromStdString(mNetworkManager->ErrorMessage()));
-			break;
-		}
+		mClientAdapter->StopSending();
 	}
-}
-
-void TransportLayerAnalyser::startServer()
-{
-	string msg;
-	while (true)
+	if (mServerAdapter != nullptr)
 	{
-		msg = mNetworkManager->Read();
-		if (msg != "")
-		{
-			qDebug() << "Msg:" << QString::fromStdString(msg);
-		}
-		msg = "";
+		mServerAdapter->StopListening();
 	}
-	qDebug() << "Server mode exitting";
 }

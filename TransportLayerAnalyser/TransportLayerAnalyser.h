@@ -12,12 +12,12 @@
 #include <QRadioButton>
 #include <QString>
 
+#include "global.h"
 #include "FileManager.h"
-#include "NetworkManager.h"
+#include "ClientAdapter.h"
+#include "ServerAdapter.h"
 
 const QString TITLE = "TransportLayerAnalyser";
-const QString RCV_DUMP_FILE = "recv.txt";
-const QString STAT_LOG = "stat-log.txt";
 
 const QString LABEL_TIME = "Time: ";
 const QString LABEL_XFER = "Data Transfered: ";
@@ -33,18 +33,14 @@ public:
 private:
 	Ui::TransportLayerAnalyserClass ui;
 
-	string mMode;
+	int mMode;
 	QString mOutputFileName;
 
-	FileManager * mFileManager;
-	FileManager * mStatsManager;
-	NetworkManager * mNetworkManager;
+	ClientAdapter * mClientAdapter;
+	ServerAdapter * mServerAdapter;
 
 	void setClientMode();
 	void setServerMode();
-
-	void startClient(const int packetSize, const int packetCount);
-	void startServer();
 
 private slots:
 	void actionToggle(bool checked);
