@@ -1,0 +1,96 @@
+Main
+    set mode to client
+
+Start button callback
+    get port
+    get protocol
+
+    if client mode
+        get host
+        get incoming file source
+        get packet size
+        get packet count
+
+        create ClientNetworkAdapter and assign it to global
+        ClientNetworkAdapter.Run()
+
+    else if server mode
+
+        create ServerNetworkAdapter and assign it to global
+        ServerNetworkAdapter.Run()
+
+ClientNetworkAdapter    
+    init
+        initialize winsock
+        create host structure
+        initialize socket based on protocol type
+        assign host to socket
+
+        if protocol is tcp 
+            connect to socket
+
+        open file to prepare for sending
+
+    Run
+        allocate buffer for packet size
+        
+        if a file was specificed
+            sendFile()
+        else
+            sendPackets()
+    
+    sendFile
+        while file still has new data to read
+            send packetsize packet
+                if error
+                    grab error and alert about it
+
+    sendPackets
+        if tcp
+            for packetCount times
+                tcp send packetSize packet with given string inside
+                if error
+                    grab error and alert about it
+        if udp
+            for packetCount times
+                udp send packetSize packet with given string inside
+                if error
+                    grab error and alert about it
+
+ServerNetworkAdapter
+    init
+        initialize winsock
+        create host structure
+        initialize socket based on protocol type
+
+    Run
+        set packetReceiveCounter to 0
+        set dataReceivedTotal to 0
+        
+        bind the socket
+        
+        if tcp
+            listenTCP
+        if udp
+            listenUDP
+
+    listenTCP
+        listen for a connection
+
+        while the thread is running
+            if a new connection is accepted and there is no error
+            
+            while there is more data to read from the stream
+                read the stream
+                write it to file
+                dataReceivedTotal += amount of data that was received
+
+    listenUDP
+        while the thread is running
+            listen for packets
+                if a packet was successfully read
+                    write it to file
+                    packetReceiveCounter++
+                    dataReceivedTotal += amount of data that was received
+                else
+                    grab error and alert about it

@@ -8,6 +8,7 @@ NetworkManager::NetworkManager(const string protocol, const string host, const i
 	, mSocket(-1)
 	, mConnectionStatus(-1)
 	, mErr()
+	, mCheese(false)
 {
 	struct in_addr * pAddress;
 
@@ -66,26 +67,9 @@ const int NetworkManager::connectTCP()
 	}
 
 	// Create Stuct for address
-	memset((char *)&mServer, 0, sizeof(struct sockaddr_in));
+	memset((char *)&mServer, 0, sizeof(mServer));
 	mServer.sin_family = AF_INET;
 	mServer.sin_port = htons(mPort);
-
-	// Check host
-	if (mpHost == NULL)
-	{
-		mErr = WSAGetLastError();
-		return 0;
-	}
-
-	// Save important information
-	memcpy((char *)&mServer.sin_addr, mpHost->h_addr, mpHost->h_length);
-
-	// Connect to server
-	if ((mConnectionStatus = connect(mSocket, (struct sockaddr *)&mServer, sizeof(mServer))) == -1)
-	{
-		mErr = WSAGetLastError();
-		return 0;
-	}
 
 	return 1;
 }
@@ -103,15 +87,6 @@ const int NetworkManager::connectUDP()
 	mServer.sin_family = AF_INET;
 	mServer.sin_port = htons(mPort);
 
-	// Check host
-	if (mpHost == NULL)
-	{
-		mErr = WSAGetLastError();
-		return 0;
-	}
-
-	// Save important information and exit
-	memcpy((char *)&mServer.sin_addr, mpHost->h_addr, mpHost->h_length);
 	return 1;
 }
 
@@ -122,8 +97,25 @@ const int NetworkManager::Send(const string data, const int size)
 	strcpy(buffer, data.c_str());
 	int result;
 
+	// Check host
+	if (mpHost == NULL)
+	{
+		mErr = WSAGetLastError();
+		return 0;
+	}
+
+	// Save important information
+	memcpy((char *)&mServer.sin_addr, mpHost->h_addr, mpHost->h_length);
+
 	if (mProtocol == "tcp")
 	{
+		// Connect to server
+		if ((mConnectionStatus = connect(mSocket, (struct sockaddr *)&mServer, sizeof(mServer))) == -1)
+		{
+			mErr = WSAGetLastError();
+			return 0;
+		}
+
 		result = send(mSocket, buffer, size, NULL);
 		if (result == -1)
 		{
@@ -170,13 +162,35 @@ const string NetworkManager::Read()
 			}
 		}
 
+		if (n == -1)
+		{
+			mErr = WSAGetLastError();
+			return "";
+		}
+
 		return string(buffer);
 	}
 	else if (mProtocol == "udp")
 	{
+		if (!mCheese)
+		{
+			mServer.sin_addr.s_addr = htonl(INADDR_ANY);
+
+			// Bind for reading if server mode
+			if ((::bind(mSocket, (struct sockaddr *)&mServer, sizeof(mServer))) == -1)
+			{
+				mErr = WSAGetLastError();
+				return 0;
+			}
+
+			mCheese = true;
+		}
+
+
 		int serverLength = sizeof(mServer);
 		if (recvfrom(mSocket, buffer, MAX_BUFFER_LEN, 0, (struct sockaddr *)&mServer, &serverLength) < 0)
 		{
+			mErr = WSAGetLastError();
 			return "";
 		}
 		else

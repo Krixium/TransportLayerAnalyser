@@ -40,7 +40,6 @@ void TransportLayerAnalyser::setClientMode()
 	ui.actionServer->setChecked(false);
 	ui.groupBox_packet->setEnabled(true);
 	ui.groupBox_data->setEnabled(true);
-	ui.lineEdit_dest->setEnabled(true);
 	setWindowTitle(TITLE + " - Client Mode");
 	mMode = "client";
 	ui.menuBar->setStyleSheet("background-color : blue;");
@@ -52,7 +51,6 @@ void TransportLayerAnalyser::setServerMode()
 	ui.actionServer->setChecked(true);
 	ui.groupBox_packet->setEnabled(false);
 	ui.groupBox_data->setEnabled(false);
-	ui.lineEdit_dest->setEnabled(false);
 	setWindowTitle(TITLE + " - Server Mode");
 	mMode = "server";
 	ui.menuBar->setStyleSheet("background-color : orange;");
@@ -162,9 +160,14 @@ void TransportLayerAnalyser::startClient(const int packetSize, const int packetC
 void TransportLayerAnalyser::startServer()
 {
 	string msg;
-	while ((msg = mNetworkManager->Read()) != "")
+	while (true)
 	{
-		qDebug() << "Msg:" << QString::fromStdString(msg);
+		msg = mNetworkManager->Read();
+		if (msg != "")
+		{
+			qDebug() << "Msg:" << QString::fromStdString(msg);
+		}
+		msg = "";
 	}
 	qDebug() << "Server mode exitting";
 }
