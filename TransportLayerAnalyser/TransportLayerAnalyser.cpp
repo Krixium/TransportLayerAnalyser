@@ -24,12 +24,14 @@ TransportLayerAnalyser::TransportLayerAnalyser(QWidget *parent)
 	connect(ui.pushButton_start, &QPushButton::pressed, this, &TransportLayerAnalyser::start);
 	connect(ui.pushButton_stop, &QPushButton::pressed, this, &TransportLayerAnalyser::stop);
 
+	ui.pushButton_stop->setEnabled(false);
+
 	setClientMode();
 }
 
 TransportLayerAnalyser::~TransportLayerAnalyser()
 {
-	stop();
+	terminate();
 	if (mClientAdapter != nullptr)
 	{
 		mClientAdapter->terminate();
@@ -81,24 +83,29 @@ void TransportLayerAnalyser::actionToggle(bool checked)
 
 void TransportLayerAnalyser::selectFile()
 {
-	QString filename = QFileDialog::getOpenFileName(this, "Select File", "C:/", "Plain Text (*.txt, *.md)");
+	QString filename = QFileDialog::getOpenFileName(this, "Select File", "C:/");
 	ui.label_filename->setText(filename);
 }
 
 void TransportLayerAnalyser::selectOutputFolder()
 {
 	mOutputFileName = QFileDialog::getExistingDirectory(this, "Open Folder", "C:/", QFileDialog::ShowDirsOnly | QFileDialog::DontResolveSymlinks);
-	mOutputFileName += "output.txt";
+	mOutputFileName += "/output.txt";
+	qDebug() << "Output Folder:" << mOutputFileName;
 }
 
 void TransportLayerAnalyser::start()
 {
+	ui.pushButton_start->setEnabled(false);
+	ui.pushButton_stop->setEnabled(true);
+
 	// Get settings
 	int packetSize = ui.lineEdit_packet_size->text().toInt();
 	int packetCount = ui.lineEdit_packet_count->text().toInt();
 	int port = ui.lineEdit_port->text().toInt();
 	int protocol;
 	string src = ui.lineEdit_dest->text().toStdString();
+	string host = ui.lineEdit_dest->text().toStdString();
 
 	if (ui.radioButton_tcp->isChecked())
 	{
@@ -110,7 +117,9 @@ void TransportLayerAnalyser::start()
 	}
 	else
 	{
-		QMessageBox::critical(this, "Error", "Protocol selection failed please try again.");
+		displayError("Protocol selection failed, please try again.");
+		ui.pushButton_start->setEnabled(true);
+		ui.pushButton_stop->setEnabled(false);
 		return;
 	}
 
@@ -118,26 +127,35 @@ void TransportLayerAnalyser::start()
 	if (mMode == CLIENT_MODE)
 	{
 		string msg = ui.plainTextEdit_message->toPlainText().toStdString();
-		if (mClientAdapter != nullptr)
+		if (ui.radioButton_file->isChecked())
 		{
-			mClientAdapter->terminate();
+			mClientAdapter = new ClientAdapter(host, port, protocol, ui.label_filename->text().toStdString(), packetSize, this);
+			connect(mClientAdapter, &ClientAdapter::ErrorOccured, this, &TransportLayerAnalyser::displayError);
+			mClientAdapter->start();
 		}
-		mClientAdapter  = new ClientAdapter(src, port, protocol, msg, packetSize, packetCount, this);
-		mClientAdapter->start();
+		else if (ui.radioButton_text->isChecked())
+		{
+			mClientAdapter = new ClientAdapter(host, port, protocol, msg, packetSize, packetCount, this);
+			mClientAdapter->start();
+		}
+		else
+		{
+			displayError("Input type error.");
+			ui.pushButton_start->setEnabled(true);
+			ui.pushButton_stop->setEnabled(false);
+		}
 	}
 	else if (mMode == SERVER_MODE)
 	{
-		if (mServerAdapter != nullptr)
-		{
-			mClientAdapter->terminate();
-		}
-		// change so that it reset winsock stuff instead of making a new one
-		mServerAdapter = new ServerAdapter(mOutputFileName.toStdString(), port, protocol, mOutputFileName.toStdString(), this);
+		mServerAdapter = new ServerAdapter(host, port, protocol, mOutputFileName.toStdString(), this);
+		connect(mServerAdapter, &ServerAdapter::ErrorOccured, this, &TransportLayerAnalyser::displayError);
 		mServerAdapter->start();
 	}
 	else
 	{
-		QMessageBox::critical(this, "Error", "Please select a operation mode.");
+		displayError("Please select an operation mode.");
+		ui.pushButton_start->setEnabled(true);
+		ui.pushButton_stop->setEnabled(false);
 		return;
 	}
 }
@@ -146,10 +164,19 @@ void TransportLayerAnalyser::stop()
 {
 	if (mClientAdapter != nullptr)
 	{
-		mClientAdapter->StopSending();
+		mClientAdapter->terminate();
+		delete mClientAdapter;
 	}
 	if (mServerAdapter != nullptr)
 	{
-		mServerAdapter->StopListening();
+		mServerAdapter->terminate();
+		delete mServerAdapter;
 	}
+	ui.pushButton_start->setEnabled(true);
+	ui.pushButton_stop->setEnabled(false);
+}
+
+void TransportLayerAnalyser::displayError(QString error)
+{
+	QMessageBox::critical(this, "Error", error);
 }

@@ -2,7 +2,7 @@
 
 #include <QDebug>
 
-ServerAdapter::ServerAdapter(const string host, const int port, const int protocol, 
+ServerAdapter::ServerAdapter(const string host, const int port, const int protocol,
 	const string filename, QObject * parent)
 	: QThread(parent)
 	, mProtocol(protocol)
@@ -13,7 +13,7 @@ ServerAdapter::ServerAdapter(const string host, const int port, const int protoc
 
 	memset(mBuffer, 0, MAX_BUFFER_LEN);
 
-	mDestFile.open(filename);
+	mDestFile.open(filename, fstream::out | fstream::binary);
 
 	// Initialize winsock
 	versionRequested = MAKEWORD(2, 2);
@@ -32,6 +32,12 @@ ServerAdapter::ServerAdapter(const string host, const int port, const int protoc
 		{
 			mpHost = gethostbyname(host.c_str());
 		}
+	}
+
+	if (!mpHost)
+	{
+		SetErrorMessage();
+		return;
 	}
 
 	// Connect to socket
@@ -60,7 +66,20 @@ ServerAdapter::ServerAdapter(const string host, const int port, const int protoc
 	memset((char *)&mClient, 0, sizeof(struct sockaddr_in));
 	mClient.sin_family = AF_INET;
 	mClient.sin_port = htons(port);
-	mClient.sin_addr.s_addr = htonl(INADDR_ANY);
+
+	if (mProtocol == TCP)
+	{
+		mClient.sin_addr.s_addr = inet_addr(host.c_str());
+
+	}
+	else if (mProtocol == UDP)
+	{
+		mClient.sin_addr.s_addr = htonl(INADDR_ANY);
+	}
+	else
+	{
+		qDebug() << "protocol error";
+	}
 
 	if ((::bind(mSocket, (struct sockaddr *)&mClient, sizeof(mClient))) == -1)
 	{
@@ -76,23 +95,19 @@ ServerAdapter::ServerAdapter(const string host, const int port, const int protoc
 
 ServerAdapter::~ServerAdapter()
 {
-	mDestFile.close();
+	if (mDestFile.is_open())
+	{
+		mDestFile.close();
+	}
 	if (mSocket)
 	{
 		closesocket(mSocket);
 	}
+	if (mListenSocket)
+	{
+		closesocket(mListenSocket);
+	}
 	WSACleanup();
-}
-
-const string ServerAdapter::GetLastErrorMessage()
-{
-	return mErrMsg;
-}
-
-void ServerAdapter::StopListening()
-{
-	mRunning = false;
-	closesocket(mListenSocket);
 }
 
 void ServerAdapter::SetErrorMessage()
@@ -133,6 +148,8 @@ void ServerAdapter::SetErrorMessage()
 
 	mErrMsg = msg + "(" + to_string(lastError) + ")";
 	qDebug() << QString::fromStdString(mErrMsg);
+
+	emit ErrorOccured(QString::fromStdString(msg));
 }
 
 void ServerAdapter::run()
@@ -147,22 +164,25 @@ void ServerAdapter::run()
 		while (mRunning)
 		{
 			clientLen = sizeof(mClient);
+			qDebug() << "socket" << mSocket;
 			if ((mListenSocket = accept(mSocket, (struct sockaddr *)&mClient, &clientLen)) == -1)
 			{
 				SetErrorMessage();
 			}
-			
+
 			memset(mBuffer, 0, MAX_BUFFER_LEN);
 
 			bytesLeft = MAX_BUFFER_LEN;
 			bp = mBuffer;
 			while ((n = recv(mListenSocket, bp, bytesLeft, 0)) < MAX_BUFFER_LEN)
 			{
-				mDestFile.write(bp, n);
+
 				bp += n;
 				bytesLeft -= n;
 				if (n == 0)
 				{
+					mDestFile.write(mBuffer, bp - mBuffer);
+					qDebug() << "tcp msg recv'd" << QString(mBuffer);
 					break;
 				}
 			}
@@ -173,6 +193,7 @@ void ServerAdapter::run()
 				mRunning = false;
 			}
 		}
+		qDebug() << "Server thread exitted";
 	}
 	else if (mProtocol == UDP)
 	{
@@ -190,6 +211,7 @@ void ServerAdapter::run()
 			else
 			{
 				mDestFile.write(mBuffer, n);
+				qDebug() << "udp msg recv'd" << QString(mBuffer);
 			}
 		}
 	}

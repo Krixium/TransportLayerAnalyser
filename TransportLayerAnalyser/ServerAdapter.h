@@ -2,6 +2,7 @@
 
 #pragma comment(lib, "ws2_32.lib")
 
+#include <QString>
 #include <QThread>
 
 #include <fstream>
@@ -33,14 +34,13 @@ public:
 
 	string mErrMsg;
 
-	const string GetLastErrorMessage();
-
-	void StopListening();
-
 protected:
 	void run();
 
 private:
 	void SetErrorMessage();
+
+signals:
+	void ErrorOccured(QString error);
 };
 

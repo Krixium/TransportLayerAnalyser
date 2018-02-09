@@ -45,9 +45,6 @@
     <ClCompile Include="GeneratedFiles\qrc_TransportLayerAnalyser.cpp">
       <Filter>Generated Files</Filter>
     </ClCompile>
-    <ClCompile Include="FileManager.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="ClientAdapter.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -87,9 +84,6 @@
   <ItemGroup>
     <ClInclude Include="GeneratedFiles\ui_TransportLayerAnalyser.h">
       <Filter>Generated Files</Filter>
-    </ClInclude>
-    <ClInclude Include="FileManager.h">
-      <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="global.h">
       <Filter>Header Files</Filter>

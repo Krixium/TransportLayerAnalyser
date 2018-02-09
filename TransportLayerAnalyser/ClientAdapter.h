@@ -2,8 +2,10 @@
 
 #pragma comment(lib, "ws2_32.lib")
 
+#include <QString>
 #include <QThread>
 
+#include <fstream>
 #include <string>
 #include <winsock2.h>
 
@@ -15,6 +17,8 @@ class ClientAdapter : public QThread
 {
 	Q_OBJECT
 public:
+	ClientAdapter(const string host, const int port, const int protocol, 
+		const string filename, const int packetSize, QObject * parent = nullptr);
 	ClientAdapter(const string host, const int port, const int protocol, 
 		const string msg, const int packetSize, const int packetCount, QObject * parent = nullptr);
 	~ClientAdapter();
@@ -29,17 +33,20 @@ public:
 	char * mMessage;
 	int mPacketCount;
 	int mPacketSize;
+	ifstream mSrcFile;
 
 	string mErrMsg;
-
-	const string GetLastErrorMessage();
-
-	void StopSending();
 
 protected:
 	void run();
 
 private:
+	void connect(const string host, const int port);
+	void sendFile();
+	void sendPackets();
 	void SetErrorMessage();
+
+signals:
+	void ErrorOccured(QString error);
 };
 
