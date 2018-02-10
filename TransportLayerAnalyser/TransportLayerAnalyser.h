@@ -48,10 +48,9 @@ private slots:
 	void selectOutputFolder();
 
 	void start();
-
-public slots:
 	void stop();
 	void displayError(QString error);
+	void toggleStartButton();
 
 signals:
 	void progress(int progress);

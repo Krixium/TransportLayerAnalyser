@@ -2,35 +2,47 @@
 
 #include <QDebug>
 
-ClientAdapter::ClientAdapter(const string host, const int port, const int protocol,
-	const string filename, const int packetSize, QObject * parent)
+ClientAdapter::ClientAdapter(QObject * parent)
 	: QThread(parent)
-	, mProtocol(protocol)
-	, mPacketSize(packetSize)
-	, mPacketCount(-1)
 {
-	mSrcFile.open(filename, fstream::in | fstream::binary);
-
-	mMessage = nullptr;
-
-	connect(host, port);
+	mRunning = true;
+	mSending = false;
 }
 
-ClientAdapter::ClientAdapter(const string host, const int port, const int protocol, 
-	const string msg, const int packetSize, const int packetCount, QObject * parent)
-	: QThread(parent)
-	, mProtocol(protocol)
-	, mPacketSize(packetSize)
-	, mPacketCount(packetCount)
+ClientAdapter::~ClientAdapter()
 {
+	delete mMessage;
+}
+
+void ClientAdapter::InitWithFile(const string host, const int port, const int protocol, const string filename, const int packetSize)
+{
+	mHostname = host;
+	mPort = port;
+	mProtocol = protocol;
+	mPacketSize = packetSize;
+	mSrcFile.open(filename, fstream::in | fstream::binary);
+	mMessage = nullptr;
+	mPacketCount = -1;
+
+	mSending = true;
+}
+
+void ClientAdapter::InitWithMsg(const string host, const int port, const int protocol, const string msg, const int packetSize, const int packetCount)
+{
+	mHostname = host;
+	mPort = port;
+	mProtocol = protocol;
+	mPacketSize = packetSize;
+	mPacketCount = packetCount;
+
 	mMessage = new char[packetSize];
 	memset(mMessage, 0, packetSize);
 	strcpy(mMessage, msg.c_str());
 
-	connect(host, port);
+	mSending = true;
 }
 
-void ClientAdapter::connect(const string host, const int port)
+void ClientAdapter::connect()
 {
 	WORD versionRequested;
 	WSADATA wsaData;
@@ -39,16 +51,16 @@ void ClientAdapter::connect(const string host, const int port)
 	versionRequested = MAKEWORD(2, 2);
 	WSAStartup(versionRequested, &wsaData);
 
-	if (isdigit(*(host.c_str())))
+	if (isdigit(*(mHostname.c_str())))
 	{
 		mpAddress = (struct in_addr *)malloc(sizeof(in_addr));
-		mpAddress->s_addr = inet_addr(host.c_str());
+		mpAddress->s_addr = inet_addr(mHostname.c_str());
 		mpHost = gethostbyaddr((char *)mpAddress, PF_INET, sizeof(*mpAddress));
 		delete mpAddress;
 	}
 	else
 	{
-		mpHost = gethostbyname(host.c_str());
+		mpHost = gethostbyname(mHostname.c_str());
 	}
 
 	if (!mpHost)
@@ -69,7 +81,7 @@ void ClientAdapter::connect(const string host, const int port)
 		// Create Stuct for address
 		memset((char *)&mServer, 0, sizeof(mServer));
 		mServer.sin_family = AF_INET;
-		mServer.sin_port = htons(port);
+		mServer.sin_port = htons(mPort);
 		memcpy((char *)&mServer.sin_addr, mpHost->h_addr, mpHost->h_length);
 
 		if (::connect(mSocket, (struct sockaddr *)&mServer, sizeof(mServer)) == -1)
@@ -89,7 +101,7 @@ void ClientAdapter::connect(const string host, const int port)
 		// Create Stuct for address
 		memset((char *)&mServer, 0, sizeof(mServer));
 		mServer.sin_family = AF_INET;
-		mServer.sin_port = htons(port);
+		mServer.sin_port = htons(mPort);
 		memcpy((char *)&mServer.sin_addr, mpHost->h_addr, mpHost->h_length);
 	}
 	else
@@ -98,9 +110,9 @@ void ClientAdapter::connect(const string host, const int port)
 	}
 }
 
-ClientAdapter::~ClientAdapter()
+void ClientAdapter::disconnect()
 {
-	delete mMessage;
+	mSending = false;
 	if (mSrcFile.is_open())
 	{
 		mSrcFile.close();
@@ -110,6 +122,7 @@ ClientAdapter::~ClientAdapter()
 		closesocket(mSocket);
 	}
 	WSACleanup();
+	emit SendingFinished();
 }
 
 void ClientAdapter::SetErrorMessage()
@@ -149,9 +162,8 @@ void ClientAdapter::SetErrorMessage()
 	}
 
 	mErrMsg = msg + "(" + to_string(lastError) + ")";
-	qDebug() << QString::fromStdString(mErrMsg);
 	emit ErrorOccured(QString::fromStdString(msg));
-
+	qDebug() << QString::fromStdString(msg);
 }
 
 void ClientAdapter::sendFile()
@@ -177,9 +189,15 @@ void ClientAdapter::sendFile()
 			if (n == -1)
 			{
 				SetErrorMessage();
-				mRunning = false;
+				mSending = false;
 				break;
 			}
+
+			if (n > 0)
+			{
+				// Emit stats here
+			}
+
 			memset(buffer, 0, mPacketSize);
 		}
 		closesocket(mSocket);
@@ -198,18 +216,21 @@ void ClientAdapter::sendFile()
 				n = sendto(mSocket, buffer, mPacketSize, NULL, (struct sockaddr *)&mServer, sizeof(mServer));
 			}
 
-			if (n == -1)
+			if (n < 0)
 			{
 				SetErrorMessage();
-				mRunning = false;
+				mSending = false;
 				break;
+			}
+			else
+			{
+				// Emit stats here
 			}
 		}
 	}
 	else
 	{
-		mRunning = false;
-		qDebug() << "Protocol select error";
+		mSending = false;
 	}
 	delete buffer;
 }
@@ -223,7 +244,11 @@ void ClientAdapter::sendPackets()
 			if ((send(mSocket, mMessage, mPacketSize, NULL)) == -1)
 			{
 				SetErrorMessage();
-				mRunning = false;
+				mSending = false;
+			}
+			else
+			{
+				// Emit stats here
 			}
 		}
 		closesocket(mSocket);
@@ -235,29 +260,44 @@ void ClientAdapter::sendPackets()
 			if (sendto(mSocket, mMessage, mPacketSize, NULL, (struct sockaddr *)&mServer, sizeof(mServer)) == -1)
 			{
 				SetErrorMessage();
-				mRunning = false;
+				mSending = false;
 			}
-			else 
+			else
 			{
-				qDebug() << "sending udp packet";
+				// Emit stats here
 			}
 		}
 	}
 	else
 	{
-		mRunning = false;
-		qDebug() << "Protocol select error";
+		mSending = false;
 	}
 }
 
 void ClientAdapter::run()
 {
-	if (mPacketCount == -1)
+	while (mRunning)
 	{
-		sendFile();
+		if (mSending)
+		{
+			connect();
+
+			if (mPacketCount == -1)
+			{
+				sendFile();
+			}
+			else
+			{
+				sendPackets();
+			}
+
+			disconnect();
+		}
+		sleep(1);
 	}
-	else
-	{
-		sendPackets();
-	}
+}
+
+void ClientAdapter::StopRunning()
+{
+	mRunning = false;
 }

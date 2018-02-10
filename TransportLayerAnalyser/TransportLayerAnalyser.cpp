@@ -6,7 +6,7 @@ TransportLayerAnalyser::TransportLayerAnalyser(QWidget *parent)
 	: QMainWindow(parent)
 	, mOutputFileName("C:/")
 	, mMode(CLIENT_MODE)
-	, mClientAdapter(nullptr)
+	, mClientAdapter(new ClientAdapter(this))
 	, mServerAdapter(nullptr)
 {
 	ui.setupUi(this);
@@ -24,18 +24,19 @@ TransportLayerAnalyser::TransportLayerAnalyser(QWidget *parent)
 	connect(ui.pushButton_start, &QPushButton::pressed, this, &TransportLayerAnalyser::start);
 	connect(ui.pushButton_stop, &QPushButton::pressed, this, &TransportLayerAnalyser::stop);
 
-	ui.pushButton_stop->setEnabled(false);
+	connect(mClientAdapter, &ClientAdapter::ErrorOccured, this, &TransportLayerAnalyser::displayError);
+	connect(mClientAdapter, &ClientAdapter::SendingFinished, this, &TransportLayerAnalyser::toggleStartButton);
+
+	toggleStartButton();
 
 	setClientMode();
 }
 
 TransportLayerAnalyser::~TransportLayerAnalyser()
 {
-	terminate();
-	if (mClientAdapter != nullptr)
-	{
-		mClientAdapter->terminate();
-	}
+	mClientAdapter->StopRunning();
+	mClientAdapter->terminate();
+
 	if (mServerAdapter != nullptr)
 	{
 		mServerAdapter->terminate();
@@ -129,13 +130,12 @@ void TransportLayerAnalyser::start()
 		string msg = ui.plainTextEdit_message->toPlainText().toStdString();
 		if (ui.radioButton_file->isChecked())
 		{
-			mClientAdapter = new ClientAdapter(host, port, protocol, ui.label_filename->text().toStdString(), packetSize, this);
-			connect(mClientAdapter, &ClientAdapter::ErrorOccured, this, &TransportLayerAnalyser::displayError);
+			mClientAdapter->InitWithFile(host, port, protocol, ui.label_filename->text().toStdString(), packetSize);
 			mClientAdapter->start();
 		}
 		else if (ui.radioButton_text->isChecked())
 		{
-			mClientAdapter = new ClientAdapter(host, port, protocol, msg, packetSize, packetCount, this);
+			mClientAdapter->InitWithMsg(host, port, protocol, msg, packetSize, packetCount);
 			mClientAdapter->start();
 		}
 		else
@@ -162,21 +162,25 @@ void TransportLayerAnalyser::start()
 
 void TransportLayerAnalyser::stop()
 {
-	if (mClientAdapter != nullptr)
+	if (mMode == CLIENT_MODE)
 	{
-		mClientAdapter->terminate();
-		delete mClientAdapter;
+		mClientAdapter->StopRunning();
 	}
-	if (mServerAdapter != nullptr)
+	if (mMode == SERVER_MODE)
 	{
-		mServerAdapter->terminate();
-		delete mServerAdapter;
+		mClientAdapter->StopRunning();
 	}
-	ui.pushButton_start->setEnabled(true);
-	ui.pushButton_stop->setEnabled(false);
+	toggleStartButton();
 }
 
 void TransportLayerAnalyser::displayError(QString error)
 {
 	QMessageBox::critical(this, "Error", error);
+}
+
+void TransportLayerAnalyser::toggleStartButton()
+{
+	qDebug() << "Resetting buttons";
+	ui.pushButton_start->setEnabled(true);
+	ui.pushButton_stop->setEnabled(false);
 }
