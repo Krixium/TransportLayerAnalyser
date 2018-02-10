@@ -11,7 +11,6 @@ ClientAdapter::ClientAdapter(QObject * parent)
 
 ClientAdapter::~ClientAdapter()
 {
-	delete mMessage;
 }
 
 void ClientAdapter::InitWithFile(const string host, const int port, const int protocol, const string filename, const int packetSize)
@@ -156,19 +155,24 @@ void ClientAdapter::SetErrorMessage()
 	case WSAECONNREFUSED:
 		msg = "Connection was refused";
 		break;
+	case WSAEMSGSIZE:
+		msg = "Packet size is too long";
+		break;
 	default:
 		msg = "Error getting error";
 		break;
 	}
 
 	mErrMsg = msg + "(" + to_string(lastError) + ")";
+
 	emit ErrorOccured(QString::fromStdString(msg));
-	qDebug() << QString::fromStdString(msg);
 }
 
 void ClientAdapter::sendFile()
 {
 	int n;
+	int progress = 0;
+	double total = mPacketSize * mPacketCount;
 	char * buffer = new char[mPacketSize + 1];
 	memset(buffer, 0, mPacketSize + 1);
 
@@ -195,7 +199,13 @@ void ClientAdapter::sendFile()
 
 			if (n > 0)
 			{
-				// Emit stats here
+				progress += n;
+				emit AmountSent(floor((progress / total) * 100));
+			}
+
+			if (!mSending)
+			{
+				break;
 			}
 
 			memset(buffer, 0, mPacketSize);
@@ -224,7 +234,12 @@ void ClientAdapter::sendFile()
 			}
 			else
 			{
-				// Emit stats here
+				progress += n;
+				emit AmountSent(floor((progress / total) * 100));
+			}
+			if (!mSending)
+			{
+				break;
 			}
 		}
 	}
@@ -237,18 +252,28 @@ void ClientAdapter::sendFile()
 
 void ClientAdapter::sendPackets()
 {
+	int n;
+	int progress = 0;
+	double total = mPacketSize * mPacketCount;
+
 	if (mProtocol == TCP)
 	{
 		for (int i = 0; i < mPacketCount; i++)
 		{
-			if ((send(mSocket, mMessage, mPacketSize, NULL)) == -1)
+			if ((n = send(mSocket, mMessage, mPacketSize, NULL)) == -1)
 			{
 				SetErrorMessage();
 				mSending = false;
+				break;
 			}
 			else
 			{
-				// Emit stats here
+				progress += n;
+				emit AmountSent(floor((progress / total) * 100));
+			}
+			if (!mSending)
+			{
+				break;
 			}
 		}
 		closesocket(mSocket);
@@ -257,14 +282,20 @@ void ClientAdapter::sendPackets()
 	{
 		for (int i = 0; i < mPacketCount; i++)
 		{
-			if (sendto(mSocket, mMessage, mPacketSize, NULL, (struct sockaddr *)&mServer, sizeof(mServer)) == -1)
+			if ((n = sendto(mSocket, mMessage, mPacketSize, NULL, (struct sockaddr *)&mServer, sizeof(mServer))) == -1)
 			{
 				SetErrorMessage();
 				mSending = false;
+				break;
 			}
 			else
 			{
-				// Emit stats here
+				progress += n;
+				emit AmountSent(floor((progress / total) * 100));
+			}
+			if (!mSending)
+			{
+				break;
 			}
 		}
 	}

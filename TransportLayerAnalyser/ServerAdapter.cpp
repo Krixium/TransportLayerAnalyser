@@ -2,12 +2,20 @@
 
 #include <QDebug>
 
-ServerAdapter::ServerAdapter(const string host, const int port, const int protocol,
-	const string filename, QObject * parent)
+ServerAdapter::ServerAdapter(QObject * parent)
 	: QThread(parent)
-	, mProtocol(protocol)
-	, mpHost((struct hostent *)malloc(sizeof(struct hostent)))
 {
+}
+
+ServerAdapter::~ServerAdapter()
+{
+}
+
+void ServerAdapter::StartListening(const string host, const int port, const int protocol, const string filename)
+{
+	mProtocol = protocol;
+	mpHost = (struct hostent *)malloc(sizeof(struct hostent));
+
 	WORD versionRequested;
 	WSADATA wsaData;
 
@@ -91,10 +99,13 @@ ServerAdapter::ServerAdapter(const string host, const int port, const int protoc
 	{
 		listen(mSocket, 5);
 	}
+
+	mWaiting = true;
 }
 
-ServerAdapter::~ServerAdapter()
+void ServerAdapter::disconnect()
 {
+
 	if (mDestFile.is_open())
 	{
 		mDestFile.close();
@@ -108,12 +119,15 @@ ServerAdapter::~ServerAdapter()
 		closesocket(mListenSocket);
 	}
 	WSACleanup();
+	emit ListeningFinished();
 }
 
 void ServerAdapter::SetErrorMessage()
 {
 	int lastError = WSAGetLastError();
 	string msg;
+
+	mWaiting = false;
 
 	switch (lastError)
 	{
@@ -147,77 +161,97 @@ void ServerAdapter::SetErrorMessage()
 	}
 
 	mErrMsg = msg + "(" + to_string(lastError) + ")";
-	qDebug() << QString::fromStdString(mErrMsg);
 
 	emit ErrorOccured(QString::fromStdString(msg));
 }
 
-void ServerAdapter::run()
+void ServerAdapter::listenTCP()
 {
-	if (mProtocol == TCP)
+	int n;
+	int clientLen;
+	int bytesLeft = MAX_BUFFER_LEN;
+	char * bp = mBuffer;
+
+	clientLen = sizeof(mClient);
+	if ((mListenSocket = accept(mSocket, (struct sockaddr *)&mClient, &clientLen)) == -1)
 	{
-		int n;
-		int clientLen;
-		int bytesLeft = MAX_BUFFER_LEN;
-		char * bp = mBuffer;
-
-		while (mRunning)
-		{
-			clientLen = sizeof(mClient);
-			qDebug() << "socket" << mSocket;
-			if ((mListenSocket = accept(mSocket, (struct sockaddr *)&mClient, &clientLen)) == -1)
-			{
-				SetErrorMessage();
-			}
-
-			memset(mBuffer, 0, MAX_BUFFER_LEN);
-
-			bytesLeft = MAX_BUFFER_LEN;
-			bp = mBuffer;
-			while ((n = recv(mListenSocket, bp, bytesLeft, 0)) < MAX_BUFFER_LEN)
-			{
-
-				bp += n;
-				bytesLeft -= n;
-				if (n == 0)
-				{
-					mDestFile.write(mBuffer, bp - mBuffer);
-					qDebug() << "tcp msg recv'd" << QString(mBuffer);
-					break;
-				}
-			}
-
-			if (n == -1)
-			{
-				SetErrorMessage();
-				mRunning = false;
-			}
-		}
-		qDebug() << "Server thread exitted";
+		SetErrorMessage();
 	}
-	else if (mProtocol == UDP)
-	{
-		while (mRunning)
-		{
-			int n;
-			int serverLength = sizeof(mClient);
-			memset(mBuffer, 0, MAX_BUFFER_LEN);
 
-			if ((n = recvfrom(mSocket, mBuffer, MAX_BUFFER_LEN, 0, (struct sockaddr *)&mClient, &serverLength)) < 0)
-			{
-				SetErrorMessage();
-				mRunning = false;
-			}
-			else
-			{
-				mDestFile.write(mBuffer, n);
-				qDebug() << "udp msg recv'd" << QString(mBuffer);
-			}
+	memset(mBuffer, 0, MAX_BUFFER_LEN);
+
+	bytesLeft = MAX_BUFFER_LEN;
+	bp = mBuffer;
+	while ((n = recv(mListenSocket, bp, bytesLeft, 0)) < MAX_BUFFER_LEN)
+	{
+
+		bp += n;
+		bytesLeft -= n;
+		if (n == 0)
+		{
+			mDestFile.write(mBuffer, bp - mBuffer);
+			break;
 		}
+	}
+
+	if (n == -1)
+	{
+		SetErrorMessage();
+	}
+}
+
+void ServerAdapter::listenUDP()
+{
+	int n;
+	int serverLength = sizeof(mClient);
+
+	memset(mBuffer, 0, MAX_BUFFER_LEN);
+
+	if ((n = recvfrom(mSocket, mBuffer, MAX_BUFFER_LEN, 0, (struct sockaddr *)&mClient, &serverLength)) < 0)
+	{
+		SetErrorMessage();
 	}
 	else
 	{
-		mRunning = false;
-		mErrMsg = "Protocol error";
+		mDestFile.write(mBuffer, n);
 	}
+}
+
+void ServerAdapter::run()
+{
+	int n;
+	int clientLen;
+	int bytesLeft = MAX_BUFFER_LEN;
+	char * bp = mBuffer;
+
+	while (mRunning)
+	{
+		if (mWaiting)
+		{
+			if (mProtocol == TCP)
+			{
+				listenTCP();
+			}
+			else if (mProtocol == UDP)
+			{
+				listenUDP();
+			}
+			else
+			{
+				mRunning = false;
+				mErrMsg = "Protocol error";
+			}
+		}
+		else
+		{
+			disconnect();
+		}
+
+		sleep(1);
+	}
+}
+
+void ServerAdapter::StopRunning()
+{
+	mRunning = false;
 }

@@ -17,11 +17,12 @@ class ServerAdapter : public QThread
 {
 	Q_OBJECT
 public:
-	ServerAdapter(const string host, const int port, const int protocol,
-		const string filename, QObject * parent = nullptr);
+	ServerAdapter(QObject * parent = nullptr);
 	~ServerAdapter();
 
 	bool mRunning;
+	bool mWaiting;
+
 	int mProtocol;
 	struct hostent * mpHost;
 	struct in_addr * mpAddress;
@@ -34,13 +35,22 @@ public:
 
 	string mErrMsg;
 
+	void StartListening(const string host, const int port, const int protocol, const string filename);
+
+	void StopRunning();
+
 protected:
 	void run();
 
 private:
+	void listenTCP();
+	void listenUDP();
+	void disconnect();
+
 	void SetErrorMessage();
 
 signals:
 	void ErrorOccured(QString error);
+	void ListeningFinished();
 };
 

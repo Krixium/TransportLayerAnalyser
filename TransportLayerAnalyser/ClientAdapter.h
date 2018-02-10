@@ -6,6 +6,7 @@
 #include <QThread>
 
 #include <fstream>
+#include <math.h>
 #include <string>
 #include <winsock2.h>
 
@@ -17,11 +18,8 @@ class ClientAdapter : public QThread
 {
 	Q_OBJECT
 public:
-	// Refactor to have empty contructor
 	ClientAdapter(QObject * parent = nullptr);
 	~ClientAdapter();
-
-	// Create init function that sets host, port, protocol, etc...
 
 	bool mRunning;
 	bool mSending;
@@ -57,6 +55,7 @@ private:
 	void SetErrorMessage();
 
 signals:
+	void AmountSent(int progress);
 	void SendingFinished();
 	void ErrorOccured(QString error);
 };

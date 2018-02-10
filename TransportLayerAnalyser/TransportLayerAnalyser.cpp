@@ -7,7 +7,7 @@ TransportLayerAnalyser::TransportLayerAnalyser(QWidget *parent)
 	, mOutputFileName("C:/")
 	, mMode(CLIENT_MODE)
 	, mClientAdapter(new ClientAdapter(this))
-	, mServerAdapter(nullptr)
+	, mServerAdapter(new ServerAdapter(this))
 {
 	ui.setupUi(this);
 
@@ -26,6 +26,10 @@ TransportLayerAnalyser::TransportLayerAnalyser(QWidget *parent)
 
 	connect(mClientAdapter, &ClientAdapter::ErrorOccured, this, &TransportLayerAnalyser::displayError);
 	connect(mClientAdapter, &ClientAdapter::SendingFinished, this, &TransportLayerAnalyser::toggleStartButton);
+	connect(mClientAdapter, &ClientAdapter::AmountSent, ui.progressBar_send, &QProgressBar::setValue);
+
+	connect(mServerAdapter, &ServerAdapter::ErrorOccured, this, &TransportLayerAnalyser::displayError);
+	connect(mServerAdapter, &ServerAdapter::ListeningFinished, this, &TransportLayerAnalyser::toggleStartButton);
 
 	toggleStartButton();
 
@@ -147,8 +151,7 @@ void TransportLayerAnalyser::start()
 	}
 	else if (mMode == SERVER_MODE)
 	{
-		mServerAdapter = new ServerAdapter(host, port, protocol, mOutputFileName.toStdString(), this);
-		connect(mServerAdapter, &ServerAdapter::ErrorOccured, this, &TransportLayerAnalyser::displayError);
+		mServerAdapter->StartListening(host, port, protocol, mOutputFileName.toStdString());
 		mServerAdapter->start();
 	}
 	else
@@ -168,7 +171,7 @@ void TransportLayerAnalyser::stop()
 	}
 	if (mMode == SERVER_MODE)
 	{
-		mClientAdapter->StopRunning();
+		mServerAdapter->StopRunning();
 	}
 	toggleStartButton();
 }
