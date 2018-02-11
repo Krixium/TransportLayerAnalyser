@@ -34,6 +34,9 @@ TransportLayerAnalyser::TransportLayerAnalyser(QWidget *parent)
 	toggleStartButton();
 
 	setClientMode();
+
+	mClientAdapter->start();
+	mServerAdapter->start();
 }
 
 TransportLayerAnalyser::~TransportLayerAnalyser()
@@ -135,24 +138,21 @@ void TransportLayerAnalyser::start()
 		if (ui.radioButton_file->isChecked())
 		{
 			mClientAdapter->InitWithFile(host, port, protocol, ui.label_filename->text().toStdString(), packetSize);
-			mClientAdapter->start();
 		}
 		else if (ui.radioButton_text->isChecked())
 		{
 			mClientAdapter->InitWithMsg(host, port, protocol, msg, packetSize, packetCount);
-			mClientAdapter->start();
 		}
 		else
 		{
-			displayError("Input type error.");
+			//displayError("Input type error.");
 			ui.pushButton_start->setEnabled(true);
 			ui.pushButton_stop->setEnabled(false);
 		}
 	}
 	else if (mMode == SERVER_MODE)
 	{
-		mServerAdapter->StartListening(host, port, protocol, mOutputFileName.toStdString());
-		mServerAdapter->start();
+		mServerAdapter->Init(host, port, protocol, mOutputFileName.toStdString());
 	}
 	else
 	{
@@ -183,7 +183,6 @@ void TransportLayerAnalyser::displayError(QString error)
 
 void TransportLayerAnalyser::toggleStartButton()
 {
-	qDebug() << "Resetting buttons";
 	ui.pushButton_start->setEnabled(true);
 	ui.pushButton_stop->setEnabled(false);
 }

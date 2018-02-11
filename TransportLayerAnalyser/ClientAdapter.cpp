@@ -23,6 +23,10 @@ void ClientAdapter::InitWithFile(const string host, const int port, const int pr
 	mMessage = nullptr;
 	mPacketCount = -1;
 
+	mSrcFile.seekg(0, mSrcFile.end);
+	mFileSize = mSrcFile.tellg();
+	mSrcFile.seekg(0, mSrcFile.beg);
+
 	mSending = true;
 }
 
@@ -46,7 +50,6 @@ void ClientAdapter::connect()
 	WORD versionRequested;
 	WSADATA wsaData;
 
-	// Initialize winsock
 	versionRequested = MAKEWORD(2, 2);
 	WSAStartup(versionRequested, &wsaData);
 
@@ -76,18 +79,6 @@ void ClientAdapter::connect()
 			SetErrorMessage();
 			return;
 		}
-
-		// Create Stuct for address
-		memset((char *)&mServer, 0, sizeof(mServer));
-		mServer.sin_family = AF_INET;
-		mServer.sin_port = htons(mPort);
-		memcpy((char *)&mServer.sin_addr, mpHost->h_addr, mpHost->h_length);
-
-		if (::connect(mSocket, (struct sockaddr *)&mServer, sizeof(mServer)) == -1)
-		{
-			SetErrorMessage();
-			return;
-		}
 	}
 	else if (mProtocol == UDP)
 	{
@@ -96,16 +87,24 @@ void ClientAdapter::connect()
 			SetErrorMessage();
 			return;
 		}
-
-		// Create Stuct for address
-		memset((char *)&mServer, 0, sizeof(mServer));
-		mServer.sin_family = AF_INET;
-		mServer.sin_port = htons(mPort);
-		memcpy((char *)&mServer.sin_addr, mpHost->h_addr, mpHost->h_length);
 	}
 	else
 	{
 		return;
+	}
+
+	memset((char *)&mServer, 0, sizeof(struct sockaddr_in));
+	mServer.sin_family = AF_INET;
+	mServer.sin_port = htons(mPort);
+	memcpy((char *)&mServer.sin_addr, mpHost->h_addr, mpHost->h_length);
+
+	if (mProtocol == TCP)
+	{
+		if (::connect(mSocket, (struct sockaddr *)&mServer, sizeof(mServer)) == -1)
+		{
+			SetErrorMessage();
+			return;
+		}
 	}
 }
 
@@ -171,8 +170,7 @@ void ClientAdapter::SetErrorMessage()
 void ClientAdapter::sendFile()
 {
 	int n;
-	int progress = 0;
-	double total = mPacketSize * mPacketCount;
+	double progress = 0;
 	char * buffer = new char[mPacketSize + 1];
 	memset(buffer, 0, mPacketSize + 1);
 
@@ -200,7 +198,7 @@ void ClientAdapter::sendFile()
 			if (n > 0)
 			{
 				progress += n;
-				emit AmountSent(floor((progress / total) * 100));
+				emit AmountSent(floor((progress / mFileSize) * 100));
 			}
 
 			if (!mSending)
@@ -235,7 +233,7 @@ void ClientAdapter::sendFile()
 			else
 			{
 				progress += n;
-				emit AmountSent(floor((progress / total) * 100));
+				emit AmountSent(floor((progress / mFileSize) * 100));
 			}
 			if (!mSending)
 			{
@@ -253,7 +251,7 @@ void ClientAdapter::sendFile()
 void ClientAdapter::sendPackets()
 {
 	int n;
-	int progress = 0;
+	double progress = 0;
 	double total = mPacketSize * mPacketCount;
 
 	if (mProtocol == TCP)

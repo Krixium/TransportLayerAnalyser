@@ -24,6 +24,8 @@ public:
 	bool mWaiting;
 
 	int mProtocol;
+	int mPort;
+	string mHost;
 	struct hostent * mpHost;
 	struct in_addr * mpAddress;
 	SOCKET mSocket;
@@ -31,11 +33,12 @@ public:
 	sockaddr_in mClient;
 
 	char mBuffer[MAX_BUFFER_LEN];
+	string mFile;
 	ofstream mDestFile;
 
 	string mErrMsg;
 
-	void StartListening(const string host, const int port, const int protocol, const string filename);
+	void Init(const string host, const int port, const int protocol, const string filename);
 
 	void StopRunning();
 
@@ -43,9 +46,10 @@ protected:
 	void run();
 
 private:
+	void connect();
+	void disconnect();
 	void listenTCP();
 	void listenUDP();
-	void disconnect();
 
 	void SetErrorMessage();
 

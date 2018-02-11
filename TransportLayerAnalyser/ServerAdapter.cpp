@@ -4,16 +4,28 @@
 
 ServerAdapter::ServerAdapter(QObject * parent)
 	: QThread(parent)
+	, mRunning(true)
+	, mWaiting(false)
 {
 }
 
 ServerAdapter::~ServerAdapter()
 {
+	mRunning = false;
+	mWaiting = false;
 }
 
-void ServerAdapter::StartListening(const string host, const int port, const int protocol, const string filename)
+void ServerAdapter::Init(const string host, const int port, const int protocol, const string filename)
 {
+	mHost = host;
+	mPort = port;
 	mProtocol = protocol;
+	mFile = filename;
+	mWaiting = true;
+}
+
+void ServerAdapter::connect()
+{
 	mpHost = (struct hostent *)malloc(sizeof(struct hostent));
 
 	WORD versionRequested;
@@ -21,34 +33,11 @@ void ServerAdapter::StartListening(const string host, const int port, const int 
 
 	memset(mBuffer, 0, MAX_BUFFER_LEN);
 
-	mDestFile.open(filename, fstream::out | fstream::binary);
+	mDestFile.open(mFile, fstream::out | fstream::binary);
 
-	// Initialize winsock
 	versionRequested = MAKEWORD(2, 2);
 	WSAStartup(versionRequested, &wsaData);
 
-	if (mProtocol == TCP)
-	{
-		if (isdigit(*(host.c_str())))
-		{
-			mpAddress = (struct in_addr *)malloc(sizeof(in_addr));
-			mpAddress->s_addr = inet_addr(host.c_str());
-			mpHost = gethostbyaddr((char *)mpAddress, PF_INET, sizeof(*mpAddress));
-			delete mpAddress;
-		}
-		else
-		{
-			mpHost = gethostbyname(host.c_str());
-		}
-	}
-
-	if (!mpHost)
-	{
-		SetErrorMessage();
-		return;
-	}
-
-	// Connect to socket
 	if (mProtocol == TCP)
 	{
 		if ((mSocket = socket(AF_INET, SOCK_STREAM, 0)) == -1)
@@ -71,23 +60,31 @@ void ServerAdapter::StartListening(const string host, const int port, const int 
 		return;
 	}
 
-	memset((char *)&mClient, 0, sizeof(struct sockaddr_in));
-	mClient.sin_family = AF_INET;
-	mClient.sin_port = htons(port);
-
 	if (mProtocol == TCP)
 	{
-		mClient.sin_addr.s_addr = inet_addr(host.c_str());
+		if (isdigit(*(mHost.c_str())))
+		{
+			mpAddress = (struct in_addr *)malloc(sizeof(in_addr));
+			mpAddress->s_addr = inet_addr(mHost.c_str());
+			mpHost = gethostbyaddr((char *)mpAddress, PF_INET, sizeof(*mpAddress));
+			delete mpAddress;
+		}
+		else
+		{
+			mpHost = gethostbyname(mHost.c_str());
+		}
+	}
 
-	}
-	else if (mProtocol == UDP)
+	if (!mpHost)
 	{
-		mClient.sin_addr.s_addr = htonl(INADDR_ANY);
+		SetErrorMessage();
+		return;
 	}
-	else
-	{
-		qDebug() << "protocol error";
-	}
+
+	memset((char *)&mClient, 0, sizeof(struct sockaddr_in));
+	mClient.sin_family = AF_INET;
+	mClient.sin_port = htons(mPort);
+	mClient.sin_addr.s_addr = htonl(INADDR_ANY);
 
 	if ((::bind(mSocket, (struct sockaddr *)&mClient, sizeof(mClient))) == -1)
 	{
@@ -105,7 +102,6 @@ void ServerAdapter::StartListening(const string host, const int port, const int 
 
 void ServerAdapter::disconnect()
 {
-
 	if (mDestFile.is_open())
 	{
 		mDestFile.close();
@@ -120,6 +116,8 @@ void ServerAdapter::disconnect()
 	}
 	WSACleanup();
 	emit ListeningFinished();
+
+	mWaiting = false;
 }
 
 void ServerAdapter::SetErrorMessage()
@@ -167,7 +165,7 @@ void ServerAdapter::SetErrorMessage()
 
 void ServerAdapter::listenTCP()
 {
-	int n;
+	int n = 1;
 	int clientLen;
 	int bytesLeft = MAX_BUFFER_LEN;
 	char * bp = mBuffer;
@@ -179,24 +177,25 @@ void ServerAdapter::listenTCP()
 	}
 
 	memset(mBuffer, 0, MAX_BUFFER_LEN);
-
 	bytesLeft = MAX_BUFFER_LEN;
 	bp = mBuffer;
+
 	while ((n = recv(mListenSocket, bp, bytesLeft, 0)) < MAX_BUFFER_LEN)
 	{
-
 		bp += n;
 		bytesLeft -= n;
+
 		if (n == 0)
 		{
 			mDestFile.write(mBuffer, bp - mBuffer);
-			break;
+			return;
 		}
-	}
 
-	if (n == -1)
-	{
-		SetErrorMessage();
+		if (n == -1)
+		{
+			SetErrorMessage();
+			return;
+		}
 	}
 }
 
@@ -205,15 +204,17 @@ void ServerAdapter::listenUDP()
 	int n;
 	int serverLength = sizeof(mClient);
 
-	memset(mBuffer, 0, MAX_BUFFER_LEN);
-
-	if ((n = recvfrom(mSocket, mBuffer, MAX_BUFFER_LEN, 0, (struct sockaddr *)&mClient, &serverLength)) < 0)
+	while (mWaiting)
 	{
-		SetErrorMessage();
-	}
-	else
-	{
-		mDestFile.write(mBuffer, n);
+		memset(mBuffer, 0, MAX_BUFFER_LEN);
+		if ((n = recvfrom(mSocket, mBuffer, MAX_BUFFER_LEN, 0, (struct sockaddr *)&mClient, &serverLength)) < 0)
+		{
+			SetErrorMessage();
+		}
+		else
+		{
+			mDestFile.write(mBuffer, n);
+		}
 	}
 }
 
@@ -228,6 +229,8 @@ void ServerAdapter::run()
 	{
 		if (mWaiting)
 		{
+			connect();
+
 			if (mProtocol == TCP)
 			{
 				listenTCP();
@@ -241,12 +244,9 @@ void ServerAdapter::run()
 				mRunning = false;
 				mErrMsg = "Protocol error";
 			}
-		}
-		else
-		{
+
 			disconnect();
 		}
-
 		sleep(1);
 	}
 }

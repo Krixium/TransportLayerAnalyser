@@ -36,6 +36,7 @@ public:
 	int mPacketCount;
 	int mPacketSize;
 	ifstream mSrcFile;
+	int mFileSize;
 
 	string mErrMsg;
 
