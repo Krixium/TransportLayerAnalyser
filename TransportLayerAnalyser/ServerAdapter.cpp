@@ -1,7 +1,5 @@
 #include "ServerAdapter.h"
 
-#include <QDebug>
-
 ServerAdapter::ServerAdapter(QObject * parent)
 	: QThread(parent)
 	, mRunning(true)
@@ -32,7 +30,6 @@ void ServerAdapter::connect()
 	WSADATA wsaData;
 
 	memset(mBuffer, 0, MAX_BUFFER_LEN);
-
 	mDestFile.open(mFile, fstream::out | fstream::binary);
 
 	versionRequested = MAKEWORD(2, 2);
@@ -98,10 +95,13 @@ void ServerAdapter::connect()
 	}
 
 	mWaiting = true;
+	emit ReadingStarted();
 }
 
 void ServerAdapter::disconnect()
 {
+	emit ReadingStopped();
+
 	if (mDestFile.is_open())
 	{
 		mDestFile.close();
@@ -129,8 +129,10 @@ void ServerAdapter::SetErrorMessage()
 
 	switch (lastError)
 	{
+	case WSAEINTR:
+		return;
 	case WSAENOTSOCK:
-		msg = "No socket given.";
+		msg = "No socket given. If you get this error after stopping a TCP server please ignore this.";
 		break;
 	case WSAENOBUFS:
 		msg = "No buffer space.";
@@ -153,13 +155,15 @@ void ServerAdapter::SetErrorMessage()
 	case WSAECONNREFUSED:
 		msg = "Connection was refused";
 		break;
+	case WSAECONNRESET:
+		msg = "Current connection was reset by the other side.";
+		break;
 	default:
 		msg = "Error getting error";
 		break;
 	}
 
 	mErrMsg = msg + "(" + to_string(lastError) + ")";
-
 	emit ErrorOccured(QString::fromStdString(msg));
 }
 
@@ -167,8 +171,6 @@ void ServerAdapter::listenTCP()
 {
 	int n = 1;
 	int clientLen;
-	int bytesLeft = MAX_BUFFER_LEN;
-	char * bp = mBuffer;
 
 	clientLen = sizeof(mClient);
 	if ((mListenSocket = accept(mSocket, (struct sockaddr *)&mClient, &clientLen)) == -1)
@@ -177,17 +179,18 @@ void ServerAdapter::listenTCP()
 	}
 
 	memset(mBuffer, 0, MAX_BUFFER_LEN);
-	bytesLeft = MAX_BUFFER_LEN;
-	bp = mBuffer;
 
-	while ((n = recv(mListenSocket, bp, bytesLeft, 0)) < MAX_BUFFER_LEN)
+	while ((n = recv(mListenSocket, mBuffer, MAX_BUFFER_LEN, 0)) < MAX_BUFFER_LEN)
 	{
-		bp += n;
-		bytesLeft -= n;
+		if (n > 0)
+		{
+			mDestFile.write(mBuffer, n);
+			memset(mBuffer, 0, n);
+			emit BytesReceived(n);
+		}
 
 		if (n == 0)
 		{
-			mDestFile.write(mBuffer, bp - mBuffer);
 			return;
 		}
 
@@ -214,6 +217,7 @@ void ServerAdapter::listenUDP()
 		else
 		{
 			mDestFile.write(mBuffer, n);
+			emit BytesReceived(n);
 		}
 	}
 }
@@ -253,5 +257,28 @@ void ServerAdapter::run()
 
 void ServerAdapter::StopRunning()
 {
-	mRunning = false;
+	mWaiting = false;
+}
+
+void ServerAdapter::StopListening()
+{
+	if (mDestFile.is_open())
+	{
+		mDestFile.close();
+	}
+
+	if (mProtocol == TCP)
+	{
+		if (mListenSocket)
+		{
+			closesocket(mListenSocket);
+		}
+	}
+
+	if (mSocket)
+	{
+		closesocket(mSocket);
+	}
+
+	mWaiting = false;
 }

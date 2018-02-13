@@ -1,7 +1,5 @@
 #include "ClientAdapter.h"
 
-#include <QDebug>
-
 ClientAdapter::ClientAdapter(QObject * parent)
 	: QThread(parent)
 {
@@ -53,24 +51,6 @@ void ClientAdapter::connect()
 	versionRequested = MAKEWORD(2, 2);
 	WSAStartup(versionRequested, &wsaData);
 
-	if (isdigit(*(mHostname.c_str())))
-	{
-		mpAddress = (struct in_addr *)malloc(sizeof(in_addr));
-		mpAddress->s_addr = inet_addr(mHostname.c_str());
-		mpHost = gethostbyaddr((char *)mpAddress, PF_INET, sizeof(*mpAddress));
-		delete mpAddress;
-	}
-	else
-	{
-		mpHost = gethostbyname(mHostname.c_str());
-	}
-
-	if (!mpHost)
-	{
-		SetErrorMessage();
-		return;
-	}
-
 	// Connect to socket
 	if (mProtocol == TCP)
 	{
@@ -93,6 +73,24 @@ void ClientAdapter::connect()
 		return;
 	}
 
+	if (isdigit(*(mHostname.c_str())))
+	{
+		mpAddress = (struct in_addr *)malloc(sizeof(in_addr));
+		mpAddress->s_addr = inet_addr(mHostname.c_str());
+		mpHost = gethostbyaddr((char *)mpAddress, PF_INET, sizeof(*mpAddress));
+		delete mpAddress;
+	}
+	else
+	{
+		mpHost = gethostbyname(mHostname.c_str());
+	}
+
+	if (!mpHost)
+	{
+		SetErrorMessage();
+		return;
+	}
+	
 	memset((char *)&mServer, 0, sizeof(struct sockaddr_in));
 	mServer.sin_family = AF_INET;
 	mServer.sin_port = htons(mPort);
@@ -106,6 +104,8 @@ void ClientAdapter::connect()
 			return;
 		}
 	}
+
+	emit SendingStarted();
 }
 
 void ClientAdapter::disconnect()
@@ -130,6 +130,8 @@ void ClientAdapter::SetErrorMessage()
 
 	switch (lastError)
 	{
+	case WSAEINTR:
+		return;
 	case WSAENOTSOCK:
 		msg = "No socket given.";
 		break;
@@ -157,13 +159,15 @@ void ClientAdapter::SetErrorMessage()
 	case WSAEMSGSIZE:
 		msg = "Packet size is too long";
 		break;
+	case WSAECONNRESET:
+		msg = "Current connection was reset by the other side.";
+		break;
 	default:
 		msg = "Error getting error";
 		break;
 	}
 
 	mErrMsg = msg + "(" + to_string(lastError) + ")";
-
 	emit ErrorOccured(QString::fromStdString(msg));
 }
 
@@ -198,7 +202,8 @@ void ClientAdapter::sendFile()
 			if (n > 0)
 			{
 				progress += n;
-				emit AmountSent(floor((progress / mFileSize) * 100));
+				emit SendingProgress(floor((progress / mFileSize) * 100));
+				emit BytesSent(n);
 			}
 
 			if (!mSending)
@@ -233,7 +238,8 @@ void ClientAdapter::sendFile()
 			else
 			{
 				progress += n;
-				emit AmountSent(floor((progress / mFileSize) * 100));
+				emit SendingProgress(floor((progress / mFileSize) * 100));
+				emit BytesSent(n);
 			}
 			if (!mSending)
 			{
@@ -267,7 +273,8 @@ void ClientAdapter::sendPackets()
 			else
 			{
 				progress += n;
-				emit AmountSent(floor((progress / total) * 100));
+				emit SendingProgress(floor((progress / total) * 100));
+				emit BytesSent(n);
 			}
 			if (!mSending)
 			{
@@ -289,7 +296,8 @@ void ClientAdapter::sendPackets()
 			else
 			{
 				progress += n;
-				emit AmountSent(floor((progress / total) * 100));
+				emit SendingProgress(floor((progress / total) * 100));
+				emit BytesSent(n);
 			}
 			if (!mSending)
 			{

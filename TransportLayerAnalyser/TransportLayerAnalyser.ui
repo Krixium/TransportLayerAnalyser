@@ -163,13 +163,6 @@
          </property>
         </widget>
        </item>
-       <item>
-        <widget class="QLabel" name="label_packets_lost">
-         <property name="text">
-          <string>Packets Lost:</string>
-         </property>
-        </widget>
-       </item>
       </layout>
      </item>
     </layout>

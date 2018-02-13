@@ -54,7 +54,14 @@ private:
 	void SetErrorMessage();
 
 signals:
+	void ReadingStarted();
+	void ReadingStopped();
+
 	void ErrorOccured(QString error);
 	void ListeningFinished();
+	void BytesReceived(int bytes);
+
+public slots:
+	void StopListening();
 };
 

@@ -56,7 +56,9 @@ private:
 	void SetErrorMessage();
 
 signals:
-	void AmountSent(int progress);
+	void SendingProgress(int progress);
+	void BytesSent(int bytes);
+	void SendingStarted();
 	void SendingFinished();
 	void ErrorOccured(QString error);
 };

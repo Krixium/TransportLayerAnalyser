@@ -3,6 +3,7 @@
 #include <QtWidgets/QMainWindow>
 #include "ui_TransportLayerAnalyser.h"
 
+#include <ctime>
 #include <QAction>
 #include <QFileDialog>
 #include <QLabel>
@@ -33,13 +34,16 @@ private:
 	Ui::TransportLayerAnalyserClass ui;
 
 	int mMode;
+	int mBytesSent;
 	QString mOutputFileName;
+	clock_t mStartTime;
 
 	ClientAdapter * mClientAdapter;
 	ServerAdapter * mServerAdapter;
 
 	void setClientMode();
 	void setServerMode();
+	void toggleStartButton();
 
 private slots:
 	void actionToggle(bool checked);
@@ -49,8 +53,11 @@ private slots:
 
 	void start();
 	void stop();
+	void updateBytesLabel(int bytes);
 	void displayError(QString error);
-	void toggleStartButton();
+
+	void startLogging();
+	void stopLogging();
 
 signals:
 	void progress(int progress);

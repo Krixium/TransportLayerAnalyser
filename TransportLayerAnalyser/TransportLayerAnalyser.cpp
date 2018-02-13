@@ -8,6 +8,7 @@ TransportLayerAnalyser::TransportLayerAnalyser(QWidget *parent)
 	, mMode(CLIENT_MODE)
 	, mClientAdapter(new ClientAdapter(this))
 	, mServerAdapter(new ServerAdapter(this))
+	, mBytesSent(0)
 {
 	ui.setupUi(this);
 
@@ -23,13 +24,19 @@ TransportLayerAnalyser::TransportLayerAnalyser(QWidget *parent)
 
 	connect(ui.pushButton_start, &QPushButton::pressed, this, &TransportLayerAnalyser::start);
 	connect(ui.pushButton_stop, &QPushButton::pressed, this, &TransportLayerAnalyser::stop);
-
+	
+	connect(mClientAdapter, &ClientAdapter::SendingStarted, this, &TransportLayerAnalyser::startLogging);
+	connect(mClientAdapter, &ClientAdapter::SendingFinished, this, &TransportLayerAnalyser::stopLogging);
 	connect(mClientAdapter, &ClientAdapter::ErrorOccured, this, &TransportLayerAnalyser::displayError);
-	connect(mClientAdapter, &ClientAdapter::SendingFinished, this, &TransportLayerAnalyser::toggleStartButton);
-	connect(mClientAdapter, &ClientAdapter::AmountSent, ui.progressBar_send, &QProgressBar::setValue);
+	connect(mClientAdapter, &ClientAdapter::SendingProgress, ui.progressBar_send, &QProgressBar::setValue);
+	connect(mClientAdapter, &ClientAdapter::BytesSent, this, &TransportLayerAnalyser::updateBytesLabel);
 
+	connect(mServerAdapter, &ServerAdapter::ReadingStarted, this, &TransportLayerAnalyser::startLogging);
+	connect(mServerAdapter, &ServerAdapter::ReadingStopped, this, &TransportLayerAnalyser::stopLogging);
 	connect(mServerAdapter, &ServerAdapter::ErrorOccured, this, &TransportLayerAnalyser::displayError);
 	connect(mServerAdapter, &ServerAdapter::ListeningFinished, this, &TransportLayerAnalyser::toggleStartButton);
+	connect(mServerAdapter, &ServerAdapter::BytesReceived, this, &TransportLayerAnalyser::updateBytesLabel);
+	connect(ui.pushButton_stop, &QPushButton::pressed, mServerAdapter, &ServerAdapter::StopListening);
 
 	toggleStartButton();
 
@@ -185,4 +192,28 @@ void TransportLayerAnalyser::toggleStartButton()
 {
 	ui.pushButton_start->setEnabled(true);
 	ui.pushButton_stop->setEnabled(false);
+}
+
+void TransportLayerAnalyser::startLogging()
+{
+	mBytesSent = 0;
+	mStartTime = clock();
+	ui.label_time->setText("Running...");
+	ui.label_data_transfered->setText(LABEL_XFER + QString::number(mBytesSent / 1000) + "KB");
+}
+
+void TransportLayerAnalyser::stopLogging()
+{
+	clock_t stopTime = clock();
+	double totalTime = (stopTime - mStartTime) / (double)CLOCKS_PER_SEC;
+
+	ui.label_time->setText(LABEL_TIME + QString::number(totalTime) + "s");
+
+	toggleStartButton();
+}
+
+void TransportLayerAnalyser::updateBytesLabel(int bytes)
+{
+	mBytesSent += bytes;
+	ui.label_data_transfered->setText(LABEL_XFER + QString::number(mBytesSent / 1000) + "KB");
 }
