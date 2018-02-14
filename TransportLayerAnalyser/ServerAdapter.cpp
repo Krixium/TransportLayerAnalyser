@@ -83,6 +83,7 @@ ServerAdapter::~ServerAdapter()
 -- INTERFACE: 			Init (const string host, const int port, const int protocol, const string filename)
 --							const string host: The host name of the sender.
 --							const int port: The port to use for receiving.
+--							const int protocol: The protocol to use.
 --							const string filename: The file that the received data is written into.
 --
 -- RETURNS: 			void.

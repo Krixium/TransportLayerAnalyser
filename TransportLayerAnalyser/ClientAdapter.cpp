@@ -27,6 +27,24 @@
 ----------------------------------------------------------------------------------------------------------------------*/
 #include "ClientAdapter.h"
 
+
+/*------------------------------------------------------------------------------------------------------------------
+-- FUNCTION: 			ClientAdapter
+--
+-- DATE: 				Feb 5, 2018
+--
+-- DESIGNER: 			Benny Wang
+--
+-- PROGRAMMER: 			Benny Wang
+--
+-- INTERFACE: 			ClientAdapter (QWidget * parent)
+--							QWidget * parent: A pointer to the parent QWidget.
+--
+-- RETURNS: 			Void.
+--
+-- NOTES:
+-- Generic thread constuctor.
+----------------------------------------------------------------------------------------------------------------------*/
 ClientAdapter::ClientAdapter(QObject * parent)
 	: QThread(parent)
 {
@@ -34,6 +52,49 @@ ClientAdapter::ClientAdapter(QObject * parent)
 	mSending = false;
 }
 
+/*------------------------------------------------------------------------------------------------------------------
+-- FUNCTION: 			~ClientAdapter
+--
+-- DATE: 				Feb 5, 2018
+--
+-- DESIGNER: 			Benny Wang
+--
+-- PROGRAMMER: 			Benny Wang
+--
+-- INTERFACE: 			~ClientAdapter ()
+--
+-- RETURNS: 			Void.
+--
+-- NOTES:
+-- Sets both control booleans to false when the class is destroyed.
+----------------------------------------------------------------------------------------------------------------------*/
+ClientAdapter::~ClientAdapter()
+{
+	mRunning = false;
+	mSending = false;
+}
+
+/*------------------------------------------------------------------------------------------------------------------
+-- FUNCTION: 			InitWithFile
+--
+-- DATE: 				Feb 5, 2018
+--
+-- DESIGNER: 			Benny Wang
+--
+-- PROGRAMMER: 			Benny Wang
+--
+-- INTERFACE: 			InitWithFile (const string host, const int port, const int protocol, const string filename, const int packetSize)
+--							const string host: The host name of the sender.
+--							const int port: The port to use for receiving.
+--							const int protocol: The protocol to use.
+--							const string filename: The file to read from.
+--							const int packetSize: The size of packets to send.
+--
+-- RETURNS: 			void.
+--
+-- NOTES:
+-- This funciton sets all variables required for sending a file and nothing else.
+----------------------------------------------------------------------------------------------------------------------*/
 void ClientAdapter::InitWithFile(const string host, const int port, const int protocol, const string filename, const int packetSize)
 {
 	mHostname = host;
@@ -51,6 +112,27 @@ void ClientAdapter::InitWithFile(const string host, const int port, const int pr
 	mSending = true;
 }
 
+/*------------------------------------------------------------------------------------------------------------------
+-- FUNCTION: 			InitWithMsg
+--
+-- DATE: 				Feb 5, 2018
+--
+-- DESIGNER: 			Benny Wang
+--
+-- PROGRAMMER: 			Benny Wang
+--
+-- INTERFACE: 			InitWithMsg (const string host, const int port, const int protocol, const string msg, const int packetSize, const int packtCount)
+--							const string host: The host name of the sender.
+--							const int port: The port to use for receiving.
+--							const int protocol: The protocol to use.
+--							const int packetSize: The size of packets to send.
+--							const int packetCount: The amount of packets to send.
+--
+-- RETURNS: 			void.
+--
+-- NOTES:
+-- This funciton sets all variables required for sending a batch of packets and nothing else.
+----------------------------------------------------------------------------------------------------------------------*/
 void ClientAdapter::InitWithMsg(const string host, const int port, const int protocol, const string msg, const int packetSize, const int packetCount)
 {
 	mHostname = host;
@@ -66,6 +148,23 @@ void ClientAdapter::InitWithMsg(const string host, const int port, const int pro
 	mSending = true;
 }
 
+/*------------------------------------------------------------------------------------------------------------------
+-- FUNCTION: 			connect
+--
+-- DATE: 				Feb 5, 2018
+--
+-- DESIGNER: 			Benny Wang
+--
+-- PROGRAMMER: 			Benny Wang
+--
+-- INTERFACE: 			connect ()
+--
+-- RETURNS: 			void.
+--
+-- NOTES:
+-- This function creates the connection for winsock. This function will start winsock, get a socket, grab the host.
+-- If the mode is TCP, it will also attempt to connect.
+----------------------------------------------------------------------------------------------------------------------*/
 void ClientAdapter::connect()
 {
 	WORD versionRequested;
@@ -131,8 +230,27 @@ void ClientAdapter::connect()
 	emit SendingStarted();
 }
 
+/*------------------------------------------------------------------------------------------------------------------
+-- FUNCTION: 			disconnect
+--
+-- DATE: 				Feb 5, 2018
+--
+-- DESIGNER: 			Benny Wang
+--
+-- PROGRAMMER: 			Benny Wang
+--
+-- INTERFACE: 			disconnect ()
+--
+-- RETURNS: 			void.
+--
+-- NOTES:
+-- This function disconnects the program from winsock. It will close the read file if it was open and also close any
+-- sockets that were used.
+----------------------------------------------------------------------------------------------------------------------*/
 void ClientAdapter::disconnect()
 {
+	emit SendingFinished();
+
 	mSending = false;
 	if (mSrcFile.is_open())
 	{
@@ -143,9 +261,26 @@ void ClientAdapter::disconnect()
 		closesocket(mSocket);
 	}
 	WSACleanup();
-	emit SendingFinished();
 }
 
+/*------------------------------------------------------------------------------------------------------------------
+-- FUNCTION: 			SetErrorMessage
+--
+-- DATE: 				Feb 5, 2018
+--
+-- DESIGNER: 			Benny Wang
+--
+-- PROGRAMMER: 			Benny Wang
+--
+-- INTERFACE: 			SetErrorMessage ()
+--
+-- RETURNS: 			void.
+--
+-- NOTES:
+-- This function coverts a winsock error code into a human readable message and stops the worker thread, but doesn't
+-- kill it. The error message is then saved to the object for when it needs to be read and emits a signal for someone 
+-- to do something with the error.
+----------------------------------------------------------------------------------------------------------------------*/
 void ClientAdapter::SetErrorMessage()
 {
 	int lastError = WSAGetLastError();
@@ -194,6 +329,24 @@ void ClientAdapter::SetErrorMessage()
 	emit ErrorOccured(QString::fromStdString(msg));
 }
 
+/*------------------------------------------------------------------------------------------------------------------
+-- FUNCTION: 			sendFile
+--
+-- DATE: 				Feb 5, 2018
+--
+-- DESIGNER: 			Benny Wang
+--
+-- PROGRAMMER: 			Benny Wang
+--
+-- INTERFACE: 			sendFile ()
+--
+-- RETURNS: 			void.
+--
+-- NOTES:
+-- This is the function that handles the sending of the file. Sending is specific to the specificed protocol, but this 
+-- funciton will grab the users specificed packetSize amount of bytes from the file and send it. If an error is encounted
+-- during sending, transmission is stopped.
+----------------------------------------------------------------------------------------------------------------------*/
 void ClientAdapter::sendFile()
 {
 	int n;
@@ -277,6 +430,24 @@ void ClientAdapter::sendFile()
 	delete buffer;
 }
 
+/*------------------------------------------------------------------------------------------------------------------
+-- FUNCTION: 			sendPackets
+--
+-- DATE: 				Feb 5, 2018
+--
+-- DESIGNER: 			Benny Wang
+--
+-- PROGRAMMER: 			Benny Wang
+--
+-- INTERFACE: 			sendPackets ()
+--
+-- RETURNS: 			void.
+--
+-- NOTES:
+-- This funciton handles the sending of user specified packets. Sending is specific to each protocol but, this funciton
+-- will transmit packets of packetSize, packetCount amount of times. If an error is encounted during sending, transmission
+-- is stopped.
+----------------------------------------------------------------------------------------------------------------------*/
 void ClientAdapter::sendPackets()
 {
 	int n;
@@ -334,6 +505,23 @@ void ClientAdapter::sendPackets()
 	}
 }
 
+/*------------------------------------------------------------------------------------------------------------------
+-- FUNCTION: 			run
+--
+-- DATE: 				Feb 5, 2018
+--
+-- DESIGNER: 			Benny Wang
+--
+-- PROGRAMMER: 			Benny Wang
+--
+-- INTERFACE: 			run ()
+--
+-- RETURNS: 			void.
+--
+-- NOTES:
+-- This is the main function of a QThead. This function will run until the program is closed. When the mWaiting flag is
+-- set, this function will connect, start sending based on the protocol specified, disconnect, and repeat.
+----------------------------------------------------------------------------------------------------------------------*/
 void ClientAdapter::run()
 {
 	while (mRunning)
@@ -357,6 +545,23 @@ void ClientAdapter::run()
 	}
 }
 
+
+/*------------------------------------------------------------------------------------------------------------------
+-- FUNCTION: 			StopRunning
+--
+-- DATE: 				Feb 5, 2018
+--
+-- DESIGNER: 			Benny Wang
+--
+-- PROGRAMMER: 			Benny Wang
+--
+-- INTERFACE: 			StopRunning ()
+--
+-- RETURNS: 			void.
+--
+-- NOTES:
+-- This function sets the running variable to false to stop the thread from working. The thread is not killed.
+----------------------------------------------------------------------------------------------------------------------*/
 void ClientAdapter::StopRunning()
 {
 	mRunning = false;

@@ -19,7 +19,7 @@ class ClientAdapter : public QThread
 	Q_OBJECT
 public:
 	ClientAdapter(QObject * parent = nullptr);
-	~ClientAdapter() = default;
+	~ClientAdapter();
 
 	bool mRunning;
 	bool mSending;
