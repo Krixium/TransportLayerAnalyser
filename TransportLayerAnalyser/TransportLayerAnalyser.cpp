@@ -289,8 +289,6 @@ void TransportLayerAnalyser::start()
 	string src = ui.lineEdit_dest->text().toStdString();
 	string host = ui.lineEdit_dest->text().toStdString();
 
-	// Check input here
-
 	if (ui.radioButton_tcp->isChecked())
 	{
 		protocol = TCP;
@@ -310,13 +308,18 @@ void TransportLayerAnalyser::start()
 	if (mMode == CLIENT_MODE)
 	{
 
-	string msg = ui.plainTextEdit_message->toPlainText().toStdString();
 		if (ui.radioButton_file->isChecked())
 		{
+			QString filename = ui.label_filename->text();
+			if (filename == "C:\\" || filename == "")
+			{
+				displayError("Please select a file");
+			}
 			mClientAdapter->InitWithFile(host, port, protocol, ui.label_filename->text().toStdString(), packetSize);
 		}
 		else if (ui.radioButton_text->isChecked())
 		{
+			string msg = ui.plainTextEdit_message->toPlainText().toStdString();
 			mClientAdapter->InitWithMsg(host, port, protocol, msg, packetSize, packetCount);
 		}
 		else
@@ -462,7 +465,14 @@ void TransportLayerAnalyser::stopLogging()
 	clock_t stopTime = clock();
 	double totalTime = (stopTime - mStartTime) / (double)CLOCKS_PER_SEC;
 
-	ui.label_time->setText(LABEL_TIME + QString::number(totalTime) + "s");
+	if (totalTime > 0)
+	{
+		ui.label_time->setText(LABEL_TIME + QString::number(totalTime) + "s");
+	}
+	else
+	{
+		ui.label_time->setText(LABEL_TIME + " N\A");
+	}
 
 	toggleStartButton();
 }
