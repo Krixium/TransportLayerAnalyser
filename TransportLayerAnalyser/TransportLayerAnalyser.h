@@ -46,7 +46,7 @@ private:
 	void toggleStartButton();
 
 private slots:
-	void actionToggle(bool checked);
+	void modeToggled(bool checked);
 
 	void selectFile();
 	void selectOutputFolder();
