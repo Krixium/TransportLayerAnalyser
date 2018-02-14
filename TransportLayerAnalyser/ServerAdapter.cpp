@@ -95,12 +95,10 @@ void ServerAdapter::connect()
 	}
 
 	mWaiting = true;
-	emit ReadingStarted();
 }
 
 void ServerAdapter::disconnect()
 {
-	emit ReadingStopped();
 
 	if (mDestFile.is_open())
 	{
@@ -180,6 +178,7 @@ void ServerAdapter::listenTCP()
 
 	memset(mBuffer, 0, MAX_BUFFER_LEN);
 
+	emit ReadingStarted();
 	while ((n = recv(mListenSocket, mBuffer, MAX_BUFFER_LEN, 0)) < MAX_BUFFER_LEN)
 	{
 		if (n > 0)
@@ -200,6 +199,7 @@ void ServerAdapter::listenTCP()
 			return;
 		}
 	}
+	emit ReadingStopped();
 }
 
 void ServerAdapter::listenUDP()

@@ -1,5 +1,7 @@
 #include "ClientAdapter.h"
 
+#include <QDebug>
+
 ClientAdapter::ClientAdapter(QObject * parent)
 	: QThread(parent)
 {

@@ -6,4 +6,4 @@
 #define TCP 1
 #define UDP 2
 
-#define MAX_BUFFER_LEN 65000
+#define MAX_BUFFER_LEN 1048576
