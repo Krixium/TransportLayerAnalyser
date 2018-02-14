@@ -1,6 +1,34 @@
+/*------------------------------------------------------------------------------------------------------------------
+-- SOURCE FILE: 		TransportLayerAnalyser.cpp - An application that allows the user to interface with the transpor layer.
+--
+-- PROGRAM: 			TransportLayerAnalyser
+--
+-- FUNCTIONS:			TransportLayerAnalyser(QWidget *parent)
+--						~TransportLayerAnalyser()
+--						void setClientMode()
+--						void setServerMode()
+--						void toggleStartButton()
+--						void actionToggle(bool checked)
+--						void selectFile()
+--						void selectOutputFolder()
+--						void start()
+--						void stop()
+--						void updateBytesLabel(int bytes)
+--						void displayError(QString error)
+--						void startLogging()
+--						void stopLogging()
+--
+-- DATE: 				Feb 5, 2018
+--
+-- DESIGNER: 			Benny Wang	
+--
+-- PROGRAMMER: 			Benny Wang	
+--
+-- NOTES:
+-- This is the main entry point of the prgoram. All UI elements are initialized here and all networking classes are 
+-- created and started here. This class also handles all user input.
+----------------------------------------------------------------------------------------------------------------------*/
 #include "TransportLayerAnalyser.h"
-
-#include <QDebug>
 
 TransportLayerAnalyser::TransportLayerAnalyser(QWidget *parent)
 	: QMainWindow(parent)
@@ -106,7 +134,6 @@ void TransportLayerAnalyser::selectOutputFolder()
 {
 	mOutputFileName = QFileDialog::getExistingDirectory(this, "Open Folder", "C:/", QFileDialog::ShowDirsOnly | QFileDialog::DontResolveSymlinks);
 	mOutputFileName += "/output.txt";
-	qDebug() << "Output Folder:" << mOutputFileName;
 }
 
 void TransportLayerAnalyser::start()
@@ -152,7 +179,7 @@ void TransportLayerAnalyser::start()
 		}
 		else
 		{
-			//displayError("Input type error.");
+			displayError("Input type error.");
 			ui.pushButton_start->setEnabled(true);
 			ui.pushButton_stop->setEnabled(false);
 		}

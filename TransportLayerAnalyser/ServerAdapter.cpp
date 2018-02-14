@@ -1,3 +1,28 @@
+/*------------------------------------------------------------------------------------------------------------------
+-- SOURCE FILE: 		ServerAdapter.cpp - An application that allows the user to interface with the transpor layer.
+--
+-- PROGRAM: 			TransportLayerAnalyser
+--
+-- FUNCTIONS:			ServerAdapter(QObject * parent)
+--						~ServerAdapter()	
+--						void Init(const string host, const int port, const int protocol, const string filename)
+--						void StopRunning()
+--						void connect()
+--						void disconnect()
+--						void listenTCP()
+--						void listenUDP()
+--						void SetErrorMessage()
+--						void StopListening()
+--
+-- DATE: 				Feb 5, 2018
+--
+-- DESIGNER: 			Benny Wang	
+--
+-- PROGRAMMER: 			Benny Wang	
+--
+-- NOTES:
+-- This is a wrapper class for the receiving portion of Winsock2.0.
+----------------------------------------------------------------------------------------------------------------------*/
 #include "ServerAdapter.h"
 
 ServerAdapter::ServerAdapter(QObject * parent)
@@ -190,16 +215,18 @@ void ServerAdapter::listenTCP()
 
 		if (n == 0)
 		{
-			return;
+			break;
 		}
 
 		if (n == -1)
 		{
 			SetErrorMessage();
-			return;
+			break;
 		}
 	}
+
 	emit ReadingStopped();
+	return;
 }
 
 void ServerAdapter::listenUDP()
@@ -207,6 +234,7 @@ void ServerAdapter::listenUDP()
 	int n;
 	int serverLength = sizeof(mClient);
 
+	emit ReadingStarted();
 	while (mWaiting)
 	{
 		memset(mBuffer, 0, MAX_BUFFER_LEN);
@@ -220,6 +248,7 @@ void ServerAdapter::listenUDP()
 			emit BytesReceived(n);
 		}
 	}
+	emit ReadingStopped();
 }
 
 void ServerAdapter::run()

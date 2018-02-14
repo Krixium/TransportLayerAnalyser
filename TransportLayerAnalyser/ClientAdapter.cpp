@@ -1,16 +1,37 @@
+/*------------------------------------------------------------------------------------------------------------------
+-- SOURCE FILE: 		ClientAdpater.cpp - An application that allows the user to interface with the transpor layer.
+--
+-- PROGRAM: 			TransportLayerAnalyser
+--
+-- FUNCTIONS:			ClientAdapter(QObject * parent)
+--						~ClientAdapter()
+--						void InitWithFile(const string host, const int port, const int protocol, const string filename,
+--											const int packetSize)
+--						void InitWithMsg(const string host, const int port, const int protocol, const string msg,
+--											const int packetSize, const int packetCount)
+--						void run()
+--						void connect()
+--						void disconnect()
+--						void sendFile()
+--						void sendPackets()
+--						void SetErrorMessage()
+--
+-- DATE: 				Feb 5, 2018
+--
+-- DESIGNER: 			Benny Wang	
+--
+-- PROGRAMMER: 			Benny Wang	
+--
+-- NOTES:
+-- This is a wrapper class for the sending portion of Winsock2.0.
+----------------------------------------------------------------------------------------------------------------------*/
 #include "ClientAdapter.h"
-
-#include <QDebug>
 
 ClientAdapter::ClientAdapter(QObject * parent)
 	: QThread(parent)
 {
 	mRunning = true;
 	mSending = false;
-}
-
-ClientAdapter::~ClientAdapter()
-{
 }
 
 void ClientAdapter::InitWithFile(const string host, const int port, const int protocol, const string filename, const int packetSize)
