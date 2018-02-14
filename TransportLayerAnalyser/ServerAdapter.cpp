@@ -25,6 +25,23 @@
 ----------------------------------------------------------------------------------------------------------------------*/
 #include "ServerAdapter.h"
 
+/*------------------------------------------------------------------------------------------------------------------
+-- FUNCTION: 			ServerAdapter
+--
+-- DATE: 				Feb 5, 2018
+--
+-- DESIGNER: 			Benny Wang
+--
+-- PROGRAMMER: 			Benny Wang
+--
+-- INTERFACE: 			ServerAdapater (QWidget * parent)
+--							QWidget * parent: A pointer to the parent QWidget.
+--
+-- RETURNS: 			Void.
+--
+-- NOTES:
+-- Generic thread constuctor.
+----------------------------------------------------------------------------------------------------------------------*/
 ServerAdapter::ServerAdapter(QObject * parent)
 	: QThread(parent)
 	, mRunning(true)
@@ -32,12 +49,47 @@ ServerAdapter::ServerAdapter(QObject * parent)
 {
 }
 
+/*------------------------------------------------------------------------------------------------------------------
+-- FUNCTION: 			~ServerAdapter
+--
+-- DATE: 				Feb 5, 2018
+--
+-- DESIGNER: 			Benny Wang
+--
+-- PROGRAMMER: 			Benny Wang
+--
+-- INTERFACE: 			~ServerAdapater ()
+--
+-- RETURNS: 			Void.
+--
+-- NOTES:
+-- Sets both control booleans to false when the class is destroyed.
+----------------------------------------------------------------------------------------------------------------------*/
 ServerAdapter::~ServerAdapter()
 {
 	mRunning = false;
 	mWaiting = false;
 }
 
+/*------------------------------------------------------------------------------------------------------------------
+-- FUNCTION: 			Init
+--
+-- DATE: 				Feb 5, 2018
+--
+-- DESIGNER: 			Benny Wang
+--
+-- PROGRAMMER: 			Benny Wang
+--
+-- INTERFACE: 			Init (const string host, const int port, const int protocol, const string filename)
+--							const string host: The host name of the sender.
+--							const int port: The port to use for receiving.
+--							const string filename: The file that the received data is written into.
+--
+-- RETURNS: 			void.
+--
+-- NOTES:
+-- This funciton will set the class variables for the ServerAdapter and nothing else.
+----------------------------------------------------------------------------------------------------------------------*/
 void ServerAdapter::Init(const string host, const int port, const int protocol, const string filename)
 {
 	mHost = host;
@@ -47,6 +99,23 @@ void ServerAdapter::Init(const string host, const int port, const int protocol, 
 	mWaiting = true;
 }
 
+/*------------------------------------------------------------------------------------------------------------------
+-- FUNCTION: 			connect
+--
+-- DATE: 				Feb 5, 2018
+--
+-- DESIGNER: 			Benny Wang
+--
+-- PROGRAMMER: 			Benny Wang
+--
+-- INTERFACE: 			connect ()
+--
+-- RETURNS: 			void.
+--
+-- NOTES:
+-- This function creates the connection for winsock. This function will start winsock, get a socket, grab the host
+-- and bind the socket. If the mode is TCP, it will also listen for a connection.
+----------------------------------------------------------------------------------------------------------------------*/
 void ServerAdapter::connect()
 {
 	mpHost = (struct hostent *)malloc(sizeof(struct hostent));
@@ -122,6 +191,23 @@ void ServerAdapter::connect()
 	mWaiting = true;
 }
 
+/*------------------------------------------------------------------------------------------------------------------
+-- FUNCTION: 			disconnect
+--
+-- DATE: 				Feb 5, 2018
+--
+-- DESIGNER: 			Benny Wang
+--
+-- PROGRAMMER: 			Benny Wang
+--
+-- INTERFACE: 			disconnect ()
+--
+-- RETURNS: 			void.
+--
+-- NOTES:
+-- This function disconnects the program from winsock. This function will close the output file, and any sockets that
+-- have been openned.
+----------------------------------------------------------------------------------------------------------------------*/
 void ServerAdapter::disconnect()
 {
 
@@ -143,6 +229,24 @@ void ServerAdapter::disconnect()
 	mWaiting = false;
 }
 
+/*------------------------------------------------------------------------------------------------------------------
+-- FUNCTION: 			SetErrorMessage
+--
+-- DATE: 				Feb 5, 2018
+--
+-- DESIGNER: 			Benny Wang
+--
+-- PROGRAMMER: 			Benny Wang
+--
+-- INTERFACE: 			SetErrorMessage ()
+--
+-- RETURNS: 			void.
+--
+-- NOTES:
+-- This function coverts a winsock error code into a human readable message and stops the worker thread, but doesn't
+-- kill it. The error message is then saved to the object for when it needs to be read and emits a signal for someone 
+-- to do something with the error.
+----------------------------------------------------------------------------------------------------------------------*/
 void ServerAdapter::SetErrorMessage()
 {
 	int lastError = WSAGetLastError();
@@ -190,6 +294,23 @@ void ServerAdapter::SetErrorMessage()
 	emit ErrorOccured(QString::fromStdString(msg));
 }
 
+/*------------------------------------------------------------------------------------------------------------------
+-- FUNCTION: 			listenTCP
+--
+-- DATE: 				Feb 5, 2018
+--
+-- DESIGNER: 			Benny Wang
+--
+-- PROGRAMMER: 			Benny Wang
+--
+-- INTERFACE: 			listenTCP ()
+--
+-- RETURNS: 			void.
+--
+-- NOTES:
+-- This is the funciton that handles receiving TCP transmissions. This function will be entered once per start button
+-- press. This function will listen for a single socket, the receive all the data from it and then exit.
+----------------------------------------------------------------------------------------------------------------------*/
 void ServerAdapter::listenTCP()
 {
 	int n = 1;
@@ -229,6 +350,23 @@ void ServerAdapter::listenTCP()
 	return;
 }
 
+/*------------------------------------------------------------------------------------------------------------------
+-- FUNCTION: 			listenUDP
+--
+-- DATE: 				Feb 5, 2018
+--
+-- DESIGNER: 			Benny Wang
+--
+-- PROGRAMMER: 			Benny Wang
+--
+-- INTERFACE: 			listenUDP ()
+--
+-- RETURNS: 			void.
+--
+-- NOTES:
+-- This is the function that handles receiving UDP transmissions. This function will enter once per start button press.
+-- This function will listen endlessly until either, the user presses stop, or an error is encountered.
+----------------------------------------------------------------------------------------------------------------------*/
 void ServerAdapter::listenUDP()
 {
 	int n;
@@ -251,6 +389,23 @@ void ServerAdapter::listenUDP()
 	emit ReadingStopped();
 }
 
+/*------------------------------------------------------------------------------------------------------------------
+-- FUNCTION: 			run
+--
+-- DATE: 				Feb 5, 2018
+--
+-- DESIGNER: 			Benny Wang
+--
+-- PROGRAMMER: 			Benny Wang
+--
+-- INTERFACE: 			run ()
+--
+-- RETURNS: 			void.
+--
+-- NOTES:
+-- This is the main function of a QThead. This function will run until the program is closed. When the mWaiting flag is
+-- set, this function will connect, start receiving based on the protocol specified, disconnect, and repeat.
+----------------------------------------------------------------------------------------------------------------------*/
 void ServerAdapter::run()
 {
 	int n;
@@ -284,11 +439,44 @@ void ServerAdapter::run()
 	}
 }
 
+/*------------------------------------------------------------------------------------------------------------------
+-- FUNCTION: 			StopRunning
+--
+-- DATE: 				Feb 5, 2018
+--
+-- DESIGNER: 			Benny Wang
+--
+-- PROGRAMMER: 			Benny Wang
+--
+-- INTERFACE: 			StopRunning ()
+--
+-- RETURNS: 			void.
+--
+-- NOTES:
+-- This function stops the thread from doing work by setting a flag. The thread is not killed.
+----------------------------------------------------------------------------------------------------------------------*/
 void ServerAdapter::StopRunning()
 {
 	mWaiting = false;
 }
 
+/*------------------------------------------------------------------------------------------------------------------
+-- FUNCTION: 			StopListening
+--
+-- DATE: 				Feb 5, 2018
+--
+-- DESIGNER: 			Benny Wang
+--
+-- PROGRAMMER: 			Benny Wang
+--
+-- INTERFACE: 			StopListening ()
+--
+-- RETURNS: 			void.
+--
+-- NOTES:
+-- This function stops the winsock from listening. This function force closes the listening sockets and closes the
+-- output file.
+----------------------------------------------------------------------------------------------------------------------*/
 void ServerAdapter::StopListening()
 {
 	if (mDestFile.is_open())
