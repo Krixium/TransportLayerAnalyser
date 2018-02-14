@@ -90,7 +90,7 @@
     <property name="title">
      <string>Packet</string>
     </property>
-    <widget class="QWidget" name="">
+    <widget class="QWidget" name="layoutWidget">
      <property name="geometry">
       <rect>
        <x>10</x>
@@ -160,13 +160,6 @@
         <widget class="QLabel" name="label_data_transfered">
          <property name="text">
           <string>Data Transfered:</string>
-         </property>
-        </widget>
-       </item>
-       <item>
-        <widget class="QLabel" name="label_packets_lost">
-         <property name="text">
-          <string>Packets Lost:</string>
          </property>
         </widget>
        </item>
@@ -358,6 +351,19 @@
   </action>
  </widget>
  <layoutdefault spacing="6" margin="11"/>
+ <tabstops>
+  <tabstop>lineEdit_packet_size</tabstop>
+  <tabstop>lineEdit_packet_count</tabstop>
+  <tabstop>radioButton_tcp</tabstop>
+  <tabstop>radioButton_udp</tabstop>
+  <tabstop>lineEdit_port</tabstop>
+  <tabstop>lineEdit_dest</tabstop>
+  <tabstop>radioButton_file</tabstop>
+  <tabstop>radioButton_text</tabstop>
+  <tabstop>plainTextEdit_message</tabstop>
+  <tabstop>pushButton_start</tabstop>
+  <tabstop>pushButton_stop</tabstop>
+ </tabstops>
  <resources>
   <include location="TransportLayerAnalyser.qrc"/>
  </resources>
